@@ -1,0 +1,16 @@
+# Build artifacts
+iso-build/
+*.iso
+*.iso.sha256
+
+# Ubuntu source ISO
+ubuntu-*-live-server-*.iso
+
+# Temporary files
+*~
+*.swp
+*.bak
+
+# macOS
+.DS_Store
+

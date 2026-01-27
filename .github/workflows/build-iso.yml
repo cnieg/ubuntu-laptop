@@ -1,0 +1,230 @@
+name: Build Ubuntu Custom ISO
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Permet de lancer manuellement
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Free up disk space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        df -h
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y squashfs-tools xorriso isolinux rsync wget
+    
+    - name: Download Ubuntu 25.10 ISO
+      run: |
+        cd $HOME
+        wget -c https://releases.ubuntu.com/25.10/ubuntu-25.10-live-server-amd64.iso
+        
+        echo "Verifying checksum..."
+        wget -q https://releases.ubuntu.com/25.10/SHA256SUMS
+        sha256sum -c SHA256SUMS 2>&1 | grep ubuntu-25.10-live-server-amd64.iso
+        rm SHA256SUMS
+    
+    - name: Extract ISO
+      run: |
+        mkdir -p $HOME/iso-build
+        cd $HOME/iso-build
+        
+        sudo mkdir -p mnt
+        sudo mount -o loop $HOME/ubuntu-25.10-live-server-amd64.iso mnt
+        
+        SQUASHFS_PATH=$(find mnt -name "*.squashfs" | head -n 1)
+        echo "SQUASHFS_PATH=$SQUASHFS_PATH" >> $GITHUB_ENV
+        
+        mkdir -p extract-cd
+        sudo rsync -a --exclude="$(basename $SQUASHFS_PATH)" mnt/ extract-cd/
+        
+        sudo unsquashfs "$SQUASHFS_PATH"
+        sudo mv squashfs-root edit
+        
+        sudo umount mnt
+    
+    - name: Customize filesystem
+      run: |
+        cd $HOME/iso-build
+        
+        sudo cp /etc/resolv.conf edit/etc/
+        sudo mount --bind /dev edit/dev
+        sudo mount --bind /run edit/run
+        
+        sudo chroot edit /bin/bash << 'CHROOT_COMMANDS'
+        set -e
+        
+        mount -t proc none /proc
+        mount -t sysfs none /sys
+        mount -t devpts none /dev/pts
+        
+        export DEBIAN_FRONTEND=noninteractive
+        export LC_ALL=C
+        export LANG=C
+        
+        echo ">>> Installing packages"
+        apt update
+        apt install -y network-manager network-manager-openvpn iwd
+        apt install -y btop curl git wget net-tools
+        apt install -y btrfs-progs cryptsetup cryptsetup-initramfs
+        apt install -y ansible
+        
+        echo ">>> Configuring services"
+        systemctl disable wpa_supplicant 2>/dev/null || true
+        systemctl mask wpa_supplicant 2>/dev/null || true
+        systemctl disable NetworkManager 2>/dev/null || true
+        systemctl disable iwd 2>/dev/null || true
+        systemctl stop NetworkManager 2>/dev/null || true
+        systemctl stop iwd 2>/dev/null || true
+        
+        echo ">>> Configuring NetworkManager for iwd"
+        mkdir -p /etc/NetworkManager/conf.d
+        cat > /etc/NetworkManager/conf.d/wifi-backend.conf << 'NMCONF'
+        [device]
+        wifi.backend=iwd
+        NMCONF
+        
+        echo ">>> Configuring iwd"
+        mkdir -p /etc/iwd
+        cat > /etc/iwd/main.conf << 'IWDCONF'
+        [General]
+        EnableNetworkConfiguration=false
+        
+        [Network]
+        NameResolvingService=systemd
+        IWDCONF
+        
+        echo ">>> Cleaning up"
+        apt clean
+        rm -rf /tmp/* /var/tmp/* /var/cache/apt/archives/*.deb
+        rm -f /etc/resolv.conf
+        
+        umount /proc
+        umount /sys  
+        umount /dev/pts
+        exit
+        CHROOT_COMMANDS
+        
+        sudo umount edit/dev
+        sudo umount edit/run
+    
+    - name: Repack filesystem
+      run: |
+        cd $HOME/iso-build
+        
+        SQUASHFS_RELATIVE=$(echo "$SQUASHFS_PATH" | sed "s|mnt/||")
+        sudo rm -f "extract-cd/$SQUASHFS_RELATIVE"
+        sudo mksquashfs edit "extract-cd/$SQUASHFS_RELATIVE" -comp xz -b 1M
+        
+        SQUASHFS_DIR=$(dirname "extract-cd/$SQUASHFS_RELATIVE")
+        if [ -f "$SQUASHFS_DIR/filesystem.size" ]; then
+            sudo du -sx --block-size=1 edit | cut -f1 | sudo tee "$SQUASHFS_DIR/filesystem.size"
+        fi
+        
+        sudo rm -rf edit
+    
+    - name: Update checksums
+      run: |
+        cd $HOME/iso-build/extract-cd
+        sudo rm -f md5sum.txt SHA256SUMS
+        find -type f -print0 | sudo xargs -0 md5sum | grep -v "isolinux/boot.cat\|boot.catalog" | sudo tee md5sum.txt
+    
+    - name: Create ISO
+      run: |
+        cd $HOME/iso-build/extract-cd
+        
+        if [ -f "./isolinux/isolinux.bin" ]; then
+            BIOS_BOOT="isolinux/isolinux.bin"
+            BOOT_CAT="isolinux/boot.cat"
+        elif [ -f "./boot/grub/i386-pc/eltorito.img" ]; then
+            BIOS_BOOT="boot/grub/i386-pc/eltorito.img"
+            BOOT_CAT="boot.catalog"
+        else
+            echo "Error: Boot files not found"
+            exit 1
+        fi
+        
+        if [ -f "./boot/grub/efi.img" ]; then
+            EFI_BOOT="boot/grub/efi.img"
+        elif [ -f "./EFI/boot/bootx64.efi" ]; then
+            EFI_BOOT="EFI/boot/bootx64.efi"
+        else
+            EFI_BOOT=""
+        fi
+        
+        ISOHDPFX=$(find /usr -name "isohdpfx.bin" 2>/dev/null | head -n 1)
+        if [ -n "$ISOHDPFX" ]; then
+            HYBRID_OPTS="-isohybrid-mbr $ISOHDPFX"
+        else
+            HYBRID_OPTS=""
+        fi
+        
+        if [ -n "$EFI_BOOT" ]; then
+            sudo xorriso -as mkisofs \
+                -r -V "Ubuntu 25.10 Custom" \
+                -o "$HOME/iso-build/ubuntu-25.10-custom.iso" \
+                -J -joliet-long \
+                $HYBRID_OPTS \
+                -c "$BOOT_CAT" \
+                -b "$BIOS_BOOT" \
+                -no-emul-boot \
+                -boot-load-size 4 \
+                -boot-info-table \
+                -eltorito-alt-boot \
+                -e "$EFI_BOOT" \
+                -no-emul-boot \
+                -isohybrid-gpt-basdat \
+                .
+        else
+            sudo xorriso -as mkisofs \
+                -r -V "Ubuntu 25.10 Custom" \
+                -o "$HOME/iso-build/ubuntu-25.10-custom.iso" \
+                -J -joliet-long \
+                $HYBRID_OPTS \
+                -c "$BOOT_CAT" \
+                -b "$BIOS_BOOT" \
+                -no-emul-boot \
+                -boot-load-size 4 \
+                -boot-info-table \
+                .
+        fi
+    
+    - name: Generate checksum
+      run: |
+        cd $HOME/iso-build
+        sha256sum ubuntu-25.10-custom.iso > ubuntu-25.10-custom.iso.sha256
+        cat ubuntu-25.10-custom.iso.sha256
+    
+    - name: Upload ISO artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ubuntu-25.10-custom-iso
+        path: |
+          ~/iso-build/ubuntu-25.10-custom.iso
+          ~/iso-build/ubuntu-25.10-custom.iso.sha256
+        retention-days: 30
+    
+    - name: Create Release (if tag)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ~/iso-build/ubuntu-25.10-custom.iso
+          ~/iso-build/ubuntu-25.10-custom.iso.sha256
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
