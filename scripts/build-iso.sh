@@ -98,7 +98,27 @@ echo ">>> Mise à jour et installation des packages"
 apt update
 
 # NetworkManager et backend Wi-Fi moderne
-apt install -y network-manager network-manager-openvpn iwd
+apt install -y network-manager network-manager-openconnect network-manager-openconnect-gnome iwd
+
+# GNOME Desktop Environment
+apt install -y gnome-shell
+
+# Configurer GDM pour démarrer en Wayland par défaut
+mkdir -p /etc/gdm3
+cat > /etc/gdm3/custom.conf << 'GDMCONF'
+[daemon]
+WaylandEnable=true
+# Décommenter la ligne suivante pour désactiver X11 complètement
+# XorgEnable=false
+
+[security]
+
+[xdmcp]
+
+[chooser]
+
+[debug]
+GDMCONF
 
 # Outils de base
 apt install -y btop curl git wget net-tools
@@ -251,7 +271,8 @@ if [ $? -eq 0 ]; then
     
     echo ""
     echo "=== Packages installés ==="
-    echo "  • NetworkManager + OpenVPN + iwd (désactivés)"
+    echo "  • NetworkManager + OpenConnect + iwd (désactivés)"
+    echo "  • GNOME Shell"
     echo "  • btop, curl, git, wget, net-tools"
     echo "  • btrfs-progs, cryptsetup"
     echo "  • ansible"

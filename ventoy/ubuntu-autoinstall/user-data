@@ -1,0 +1,167 @@
+#cloud-config
+autoinstall:
+  version: 1
+  
+  # Configuration locale et clavier
+  locale: fr_FR.UTF-8
+  keyboard:
+    layout: fr
+  
+  # Utilisateur
+  identity:
+    hostname: ubuntu-laptop
+    username: ubuntu-admin
+    password: "$6$/yanqE2Vz2S8vxoc$9AijXrulDxDWtdbzSRcFUGvQgoccp7jn3HYYx3l4n3MHeZZnrpgQuMuibotuTLc87L2/l0jTpEicShq5bvLOE0"
+  
+  # SSH
+  ssh:
+    install-server: yes
+    allow-pw: yes
+    # Décommente et ajoute ta clé publique
+    # authorized-keys:
+    #   - ssh-rsa AAAAB3... ton_email@domain.com
+  
+  # Stockage: LUKS + btrfs
+  storage:
+    layout:
+      name: direct
+    config:
+      # Disque principal
+      - type: disk
+        id: disk0
+        ptable: gpt
+        wipe: superblock-recursive
+        preserve: false
+        grub_device: true
+      
+      # Partition EFI (non chiffrée)
+      - type: partition
+        id: partition-efi
+        device: disk0
+        size: 512M
+        flag: boot
+      
+      # Partition /boot (non chiffrée)
+      - type: partition
+        id: partition-boot
+        device: disk0
+        size: 1G
+      
+      # Partition racine (sera chiffrée)
+      - type: partition
+        id: partition-root
+        device: disk0
+        size: -1
+      
+      # Format EFI
+      - type: format
+        id: format-efi
+        volume: partition-efi
+        fstype: fat32
+        label: EFI
+      
+      # Format /boot
+      - type: format
+        id: format-boot
+        volume: partition-boot
+        fstype: ext4
+        label: boot
+      
+      # Chiffrement LUKS
+      - type: dm_crypt
+        id: dmcrypt-root
+        volume: partition-root
+        key: "LUKS-cnieg"
+      
+      # Format btrfs sur LUKS
+      - type: format
+        id: format-root
+        volume: dmcrypt-root
+        fstype: btrfs
+        label: rootfs
+      
+      # Mount /boot/efi
+      - type: mount
+        id: mount-efi
+        device: format-efi
+        path: /boot/efi
+      
+      # Mount /boot
+      - type: mount
+        id: mount-boot
+        device: format-boot
+        path: /boot
+      
+      # Sous-volume racine
+      - type: btrfs_subvolume
+        id: subvol-root
+        volume: format-root
+        name: "@"
+      
+      - type: mount
+        id: mount-root
+        device: subvol-root
+        path: /
+        options: "subvol=@,compress=zstd"
+      
+      # Sous-volume /home
+      - type: btrfs_subvolume
+        id: subvol-home
+        volume: format-root
+        name: "@home"
+      
+      - type: mount
+        id: mount-home
+        device: subvol-home
+        path: /home
+        options: "subvol=@home,compress=zstd"
+      
+      # Sous-volume /var
+      - type: btrfs_subvolume
+        id: subvol-var
+        volume: format-root
+        name: "@var"
+      
+      - type: mount
+        id: mount-var
+        device: subvol-var
+        path: /var
+        options: "subvol=@var,compress=zstd"
+  
+  # Packages supplémentaires (optionnel si réseau disponible)
+  # packages:
+  #   - package1
+  #   - package2
+  
+  # Configuration post-installation
+  late-commands:
+    # Copier le logo depuis le CDROM vers la machine
+    - cp /cdrom/oasis-logo.png /target/usr/share/pixmaps/oasis-logo.png || true
+    
+    # Nettoyer les fichiers netplan créés par l'installeur
+    - rm -f /target/etc/netplan/*.yaml
+    
+    # Créer le fichier netplan pour NetworkManager avec bonnes permissions
+    - |
+      cat > /target/etc/netplan/01-network-manager.yaml << 'NETPLAN'
+      network:
+        version: 2
+        renderer: NetworkManager
+      NETPLAN
+    
+    # Corriger les permissions du fichier netplan
+    - chmod 600 /target/etc/netplan/01-network-manager.yaml
+    - chown root:root /target/etc/netplan/01-network-manager.yaml
+    
+    # Désactiver systemd-networkd
+    - curtin in-target -- systemctl stop systemd-networkd
+    - curtin in-target -- systemctl disable systemd-networkd
+    - curtin in-target -- systemctl mask systemd-networkd
+    
+    # Activer NetworkManager et iwd
+    - curtin in-target -- systemctl enable NetworkManager
+    - curtin in-target -- systemctl enable iwd
+    
+    # Message de fin
+    - echo 'Installation terminée avec LUKS + btrfs + NetworkManager !' > /target/root/install-complete.txt
+

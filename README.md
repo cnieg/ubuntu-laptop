@@ -1,23 +1,64 @@
 # Ubuntu Laptop - Custom ISO
 
-ISO Ubuntu Server 25.10 personnalisée pour laptops avec :
+ISO Ubuntu Desktop 25.10 personnalisée pour laptops avec :
+- **GNOME Desktop** (ubuntu-desktop-minimal)
+- **Wayland** activé par défaut
 - NetworkManager + iwd (backend Wi-Fi moderne)
+- OpenConnect VPN
 - Packages de base : btop, curl, git, wget, net-tools
 - Support btrfs + cryptsetup (LUKS)
 - Ansible pré-installé
 - Configuration automatique via cloud-init
 
-## Build automatique
+## 🚀 Installation rapide sur Ventoy
 
-L'ISO est buildée automatiquement via GitHub Actions à chaque push sur `main`.
+### Méthode 1 : Package complet (recommandé)
 
-### Télécharger l'ISO
+1. Télécharger le **package Ventoy** depuis [Actions](https://github.com/ton-username/ubuntu-laptop/actions) ou les [Releases](https://github.com/ton-username/ubuntu-laptop/releases)
+2. Extraire l'archive : `tar xzf ventoy-package.tar.gz`
+3. Copier le contenu sur votre clé Ventoy :
+```bash
+   # Monter votre clé Ventoy
+   # Puis copier les fichiers
+   cp ventoy-package/ubuntu-25.10-desktop-custom.iso /media/$USER/Ventoy/
+   cp -r ventoy-package/ventoy/* /media/$USER/Ventoy/ventoy/
+```
+4. Démonter et booter !
 
-1. Aller dans l'onglet **Actions**
+Le package contient :
+- ✅ L'ISO
+- ✅ Le fichier ventoy.json configuré
+- ✅ Les fichiers cloud-init (user-data, meta-data)
+- ✅ Le logo Oasis
+- ✅ Un README avec les instructions
+
+### Méthode 2 : Script de déploiement (développement local)
+```bash
+# Builder l'ISO localement
+./scripts/build-iso.sh
+
+# Déployer sur Ventoy
+./scripts/deploy-to-ventoy.sh
+```
+
+## 📦 Télécharger depuis GitHub
+
+### Via GitHub Actions (builds automatiques)
+
+1. Aller dans l'onglet **[Actions](https://github.com/ton-username/ubuntu-laptop/actions)**
 2. Sélectionner le dernier workflow réussi
-3. Télécharger l'artifact `ubuntu-25.10-custom-iso`
+3. Télécharger :
+   - `ventoy-package` : Archive complète prête pour Ventoy
+   - `ubuntu-25.10-desktop-custom-iso` : ISO seule (si besoin)
 
-## Build local
+### Via Releases (versions stables)
+
+Pour les versions taguées, télécharger depuis les [Releases](https://github.com/ton-username/ubuntu-laptop/releases) :
+- `ubuntu-25.10-desktop-custom.iso` : ISO
+- `ubuntu-25.10-desktop-custom.iso.sha256` : Checksum
+- `ventoy-package.tar.gz` : Package Ventoy complet
+
+## 🛠️ Build local
 
 ### Prérequis
 ```bash
@@ -30,31 +71,15 @@ chmod +x scripts/build-iso.sh
 ./scripts/build-iso.sh
 ```
 
-L'ISO sera créée dans `~/iso-build/ubuntu-25.10-custom.iso`
+L'ISO sera créée dans `~/iso-build/ubuntu-25.10-desktop-custom.iso`
 
-## Déployer sur Ventoy
+## ⚙️ Configuration cloud-init
 
-### Prérequis
-- Une clé USB avec Ventoy installé
-- Le fichier `oasis-logo.png` (optionnel)
-
-### Déploiement
-```bash
-chmod +x scripts/deploy-to-ventoy.sh
-./scripts/deploy-to-ventoy.sh
-```
-
-Le script va :
-1. Détecter automatiquement la clé Ventoy
-2. Copier l'ISO
-3. Créer la structure cloud-init avec user-data et meta-data
-4. Copier le logo (si présent)
-
-## Configuration cloud-init
-
-La configuration par défaut :
+La configuration par défaut (dans `ventoy/ubuntu-autoinstall/user-data`) :
 - **Hostname**: ubuntu-laptop
 - **Username**: ubuntu-admin
+- **Password**: (hashé dans le fichier)
+- **Password LUKS**: LUKS-cnieg
 - **Clavier**: FR
 - **Locale**: fr_FR.UTF-8
 - **Stockage**: LUKS + btrfs avec compression zstd
@@ -62,27 +87,66 @@ La configuration par défaut :
 
 ### Personnaliser
 
-Éditez `/ventoy/ubuntu-autoinstall/user-data` sur la clé Ventoy pour modifier :
-- Les mots de passe
-- Les clés SSH
-- Le layout du disque
-- Les packages supplémentaires
+Pour modifier la configuration :
 
-## Créer une release
+1. **Pour les builds GitHub** : Éditer les fichiers dans le repo
+```bash
+   vim ventoy/ubuntu-autoinstall/user-data
+   git commit -m "feat: update configuration"
+   git push
+```
 
-Pour créer une release avec l'ISO :
+2. **Pour un déploiement local** : Le script copie les fichiers du repo
+
+3. **Sur une clé Ventoy existante** : Éditer directement
+```bash
+   vim /media/$USER/Ventoy/ventoy/ubuntu-autoinstall/user-data
+```
+
+### Générer un nouveau hash de mot de passe
+```bash
+openssl passwd -6
+# Entre ton mot de passe
+# Remplace le hash dans user-data
+```
+
+## 📂 Structure du repository
+ubuntu-laptop/
+├── .github/
+│   └── workflows/
+│       └── build-iso.yml          # CI/CD
+├── ventoy/
+│   ├── ubuntu-autoinstall/
+│   │   ├── user-data              # Configuration cloud-init
+│   │   └── meta-data              # Métadonnées
+│   └── ventoy.json                # Config Ventoy
+├── scripts/
+│   ├── build-iso.sh               # Build ISO
+│   └── deploy-to-ventoy.sh        # Déploiement Ventoy (optionnel)
+├── assets/
+│   └── oasis-logo.png             # Logo copié dans /usr/share/pixmaps
+└── README.md
+
+## 🏷️ Créer une release
+
+Pour créer une release avec l'ISO et le package Ventoy :
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-L'ISO sera automatiquement attachée à la release GitHub.
+L'ISO et le package Ventoy seront automatiquement attachés à la release GitHub.
 
 ## Packages installés
 
+### Desktop
+- ubuntu-desktop-minimal (GNOME)
+- GDM avec Wayland activé
+
 ### Réseau
 - network-manager
-- network-manager-openvpn
+- network-manager-openconnect (VPN)
+- network-manager-openconnect-gnome
 - iwd (backend Wi-Fi)
 
 ### Outils
