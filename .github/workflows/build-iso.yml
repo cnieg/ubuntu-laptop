@@ -31,30 +31,29 @@ jobs:
     
     - name: Generate checksum
       run: |
-        cd $HOME/iso-build
+        cd ~/iso-build
         sha256sum ubuntu-25.10-desktop-custom.iso > ubuntu-25.10-desktop-custom.iso.sha256
         cat ubuntu-25.10-desktop-custom.iso.sha256
     
     - name: Prepare Ventoy package
       run: |
-        cd $HOME
         mkdir -p ventoy-package
         
         # Copier l'ISO
-        cp iso-build/ubuntu-25.10-desktop-custom.iso ventoy-package/
-        cp iso-build/ubuntu-25.10-desktop-custom.iso.sha256 ventoy-package/
+        cp ~/iso-build/ubuntu-25.10-desktop-custom.iso ventoy-package/
+        cp ~/iso-build/ubuntu-25.10-desktop-custom.iso.sha256 ventoy-package/
         
         # Créer la structure Ventoy
         mkdir -p ventoy-package/ventoy/ubuntu-autoinstall
         
         # Copier les fichiers cloud-init depuis le repo
-        cp $GITHUB_WORKSPACE/ventoy/ubuntu-autoinstall/user-data ventoy-package/ventoy/ubuntu-autoinstall/
-        cp $GITHUB_WORKSPACE/ventoy/ubuntu-autoinstall/meta-data ventoy-package/ventoy/ubuntu-autoinstall/
-        cp $GITHUB_WORKSPACE/ventoy/ventoy.json ventoy-package/ventoy/
+        cp ventoy/ubuntu-autoinstall/user-data ventoy-package/ventoy/ubuntu-autoinstall/
+        cp ventoy/ubuntu-autoinstall/meta-data ventoy-package/ventoy/ubuntu-autoinstall/
+        cp ventoy/ventoy.json ventoy-package/ventoy/
         
         # Copier le logo si présent
-        if [ -f "$GITHUB_WORKSPACE/assets/oasis-logo.png" ]; then
-          cp $GITHUB_WORKSPACE/assets/oasis-logo.png ventoy-package/ventoy/ubuntu-autoinstall/
+        if [ -f "assets/oasis-logo.png" ]; then
+          cp assets/oasis-logo.png ventoy-package/ventoy/ubuntu-autoinstall/
         fi
         
         # Créer un README pour Ventoy
@@ -94,11 +93,10 @@ jobs:
         
         # Afficher la structure
         echo "Structure du package Ventoy:"
-        tree ventoy-package || find ventoy-package -type f
+        find ventoy-package -type f
     
     - name: Create Ventoy archive
       run: |
-        cd $HOME
         tar czf ventoy-package.tar.gz ventoy-package/
         ls -lh ventoy-package.tar.gz
     
@@ -115,7 +113,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ventoy-package
-        path: ~/ventoy-package.tar.gz
+        path: ventoy-package.tar.gz
         retention-days: 30
     
     - name: Create Release (if tag)
@@ -125,7 +123,7 @@ jobs:
         files: |
           ~/iso-build/ubuntu-25.10-desktop-custom.iso
           ~/iso-build/ubuntu-25.10-desktop-custom.iso.sha256
-          ~/ventoy-package.tar.gz
+          ventoy-package.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
