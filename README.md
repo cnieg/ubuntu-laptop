@@ -20,7 +20,7 @@ ISO Ubuntu Desktop 25.10 personnalisée pour laptops avec :
 ```bash
    # Monter votre clé Ventoy
    # Puis copier les fichiers
-   cp ventoy-package/ubuntu-25.10-desktop-custom.iso /media/$USER/Ventoy/
+   cp ventoy-package/ubuntu-25.10-custom.iso /media/$USER/Ventoy/
    cp -r ventoy-package/ventoy/* /media/$USER/Ventoy/ventoy/
 ```
 4. Démonter et booter !
@@ -49,13 +49,13 @@ Le package contient :
 2. Sélectionner le dernier workflow réussi
 3. Télécharger :
    - `ventoy-package` : Archive complète prête pour Ventoy
-   - `ubuntu-25.10-desktop-custom-iso` : ISO seule (si besoin)
+   - `ubuntu-25.10-custom-iso` : ISO seule (si besoin)
 
 ### Via Releases (versions stables)
 
 Pour les versions taguées, télécharger depuis les [Releases](https://github.com/ton-username/ubuntu-laptop/releases) :
-- `ubuntu-25.10-desktop-custom.iso` : ISO
-- `ubuntu-25.10-desktop-custom.iso.sha256` : Checksum
+- `ubuntu-25.10-custom.iso` : ISO
+- `ubuntu-25.10-custom.iso.sha256` : Checksum
 - `ventoy-package.tar.gz` : Package Ventoy complet
 
 ## 🛠️ Build local
@@ -71,7 +71,7 @@ chmod +x scripts/build-iso.sh
 ./scripts/build-iso.sh
 ```
 
-L'ISO sera créée dans `~/iso-build/ubuntu-25.10-desktop-custom.iso`
+L'ISO sera créée dans `~/iso-build/ubuntu-25.10-custom.iso`
 
 ## ⚙️ Configuration cloud-init
 
@@ -111,6 +111,7 @@ openssl passwd -6
 ```
 
 ## 📂 Structure du repository
+
 ubuntu-laptop/
 ├── .github/
 │   └── workflows/

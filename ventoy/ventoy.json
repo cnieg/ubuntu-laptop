@@ -1,7 +1,7 @@
 {
     "auto_install": [
         {
-            "image": "/ubuntu-25.10-desktop-custom.iso",
+            "image": "/ubuntu-25.10-custom.iso",
             "template": "/ventoy/ubuntu-autoinstall/user-data",
             "autosel": 1,
             "timeout": 1

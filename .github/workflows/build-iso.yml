@@ -32,16 +32,16 @@ jobs:
     - name: Generate checksum
       run: |
         cd ~/iso-build
-        sha256sum ubuntu-25.10-desktop-custom.iso > ubuntu-25.10-desktop-custom.iso.sha256
-        cat ubuntu-25.10-desktop-custom.iso.sha256
+        sha256sum ubuntu-25.10-custom.iso > ubuntu-25.10-custom.iso.sha256
+        cat ubuntu-25.10-custom.iso.sha256
     
     - name: Prepare Ventoy package
       run: |
         mkdir -p ventoy-package
         
         # Copier l'ISO
-        cp ~/iso-build/ubuntu-25.10-desktop-custom.iso ventoy-package/
-        cp ~/iso-build/ubuntu-25.10-desktop-custom.iso.sha256 ventoy-package/
+        cp ~/iso-build/ubuntu-25.10-custom.iso ventoy-package/
+        cp ~/iso-build/ubuntu-25.10-custom.iso.sha256 ventoy-package/
         
         # Créer la structure Ventoy
         mkdir -p ventoy-package/ventoy/ubuntu-autoinstall
@@ -66,12 +66,12 @@ jobs:
         Installation sur clé Ventoy:
         ----------------------------
         1. Montez votre clé Ventoy
-        2. Copiez ubuntu-25.10-desktop-custom.iso à la racine de Ventoy
+        2. Copiez ubuntu-25.10-custom.iso à la racine de Ventoy
         3. Copiez le dossier "ventoy/" à la racine de Ventoy (fusionnez si existe déjà)
         
         Structure finale sur votre clé:
         /
-        ├── ubuntu-25.10-desktop-custom.iso
+        ├── ubuntu-25.10-custom.iso
         └── ventoy/
             ├── ventoy.json
             └── ubuntu-autoinstall/
@@ -103,10 +103,10 @@ jobs:
     - name: Upload ISO artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ubuntu-25.10-desktop-custom-iso
+        name: ubuntu-25.10-custom-iso
         path: |
-          ~/iso-build/ubuntu-25.10-desktop-custom.iso
-          ~/iso-build/ubuntu-25.10-desktop-custom.iso.sha256
+          ~/iso-build/ubuntu-25.10-custom.iso
+          ~/iso-build/ubuntu-25.10-custom.iso.sha256
         retention-days: 30
     
     - name: Upload Ventoy package
@@ -121,8 +121,8 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          ~/iso-build/ubuntu-25.10-desktop-custom.iso
-          ~/iso-build/ubuntu-25.10-desktop-custom.iso.sha256
+          ~/iso-build/ubuntu-25.10-custom.iso
+          ~/iso-build/ubuntu-25.10-custom.iso.sha256
           ventoy-package.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
