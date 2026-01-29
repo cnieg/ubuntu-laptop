@@ -111,7 +111,7 @@ openssl passwd -6
 ```
 
 ## 📂 Structure du repository
-
+```
 ubuntu-laptop/
 ├── .github/
 │   └── workflows/
@@ -127,7 +127,7 @@ ubuntu-laptop/
 ├── assets/
 │   └── oasis-logo.png             # Logo copié dans /usr/share/pixmaps
 └── README.md
-
+```
 ## 🏷️ Créer une release
 
 Pour créer une release avec l'ISO et le package Ventoy :
