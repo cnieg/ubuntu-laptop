@@ -14,7 +14,7 @@ ISO Ubuntu Desktop 25.10 personnalisée pour laptops avec :
 
 ### Méthode 1 : Package complet (recommandé)
 
-1. Télécharger le **package Ventoy** depuis [Actions](https://github.com/ton-username/ubuntu-laptop/actions) ou les [Releases](https://github.com/ton-username/ubuntu-laptop/releases)
+1. Télécharger le **package Ventoy** depuis [Actions](https://github.com/cnieg/ubuntu-laptop/actions) ou les [Releases](https://github.com/cnieg/ubuntu-laptop/releases)
 2. Extraire l'archive : `tar xzf ventoy-package.tar.gz`
 3. Copier le contenu sur votre clé Ventoy :
 ```bash
@@ -45,7 +45,7 @@ Le package contient :
 
 ### Via GitHub Actions (builds automatiques)
 
-1. Aller dans l'onglet **[Actions](https://github.com/ton-username/ubuntu-laptop/actions)**
+1. Aller dans l'onglet **[Actions](https://github.com/cnieg/ubuntu-laptop/actions)**
 2. Sélectionner le dernier workflow réussi
 3. Télécharger :
    - `ventoy-package` : Archive complète prête pour Ventoy
@@ -53,7 +53,7 @@ Le package contient :
 
 ### Via Releases (versions stables)
 
-Pour les versions taguées, télécharger depuis les [Releases](https://github.com/ton-username/ubuntu-laptop/releases) :
+Pour les versions taguées, télécharger depuis les [Releases](https://github.com/cnieg/ubuntu-laptop/releases) :
 - `ubuntu-25.10-custom.iso` : ISO
 - `ubuntu-25.10-custom.iso.sha256` : Checksum
 - `ventoy-package.tar.gz` : Package Ventoy complet
