@@ -95,30 +95,27 @@ export LC_ALL=C
 export LANG=C
 
 echo ">>> Mise à jour et installation des packages"
-apt update
+apt update && apt upgrade -y
 
 # NetworkManager et backend Wi-Fi moderne
 apt install -y network-manager network-manager-openconnect network-manager-openconnect-gnome iwd
 
 # GNOME Desktop Environment
-apt install -y gnome-shell
+apt install -y software-properties-common ubuntu-desktop-minimal gnome-session gnome-shell gdm3
 
-# Configurer GDM pour démarrer en Wayland par défaut
-mkdir -p /etc/gdm3
-cat > /etc/gdm3/custom.conf << 'GDMCONF'
-[daemon]
-WaylandEnable=true
-# Décommenter la ligne suivante pour désactiver X11 complètement
-# XorgEnable=false
+# Install essential applications individually
+apt install -y \
+    nautilus \              # File manager
+    gnome-terminal \        # Terminal emulator
+    gnome-text-editor \     # Text editor
+    gnome-system-monitor \  # System monitor
+    gnome-control-center    # Settings application
 
-[security]
-
-[xdmcp]
-
-[chooser]
-
-[debug]
-GDMCONF
+# Install additional utilities as needed
+apt install -y \
+    gnome-tweaks \          # Advanced settings
+    gnome-shell-extensions \ # Extension support
+    dconf-editor            # Configuration editor
 
 # Outils de base
 apt install -y btop curl git wget net-tools
