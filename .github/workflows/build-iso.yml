@@ -1,62 +1,158 @@
 name: Build Ubuntu Custom ISO
-
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Permet de lancer manuellement
+  workflow_dispatch:
 
 jobs:
   build-iso:
     runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6h max
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
     
-    - name: Free up disk space
+    - name: Free up disk space aggressively
       run: |
+        echo "Espace initial:"
+        df -h
+        
+        # Supprimer les gros packages inutiles
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
-        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf /usr/local/share/boost
         sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        
+        # Nettoyer apt
+        sudo apt-get clean
+        
+        # Nettoyer Docker
+        docker rmi $(docker image ls -aq) 2>/dev/null || true
+        sudo rm -rf /var/lib/docker
+        
+        echo "Espace après nettoyage:"
         df -h
+    
+    - name: Check system resources
+      run: |
+        echo "=== CPU ==="
+        nproc
+        lscpu | grep "Model name"
+        
+        echo ""
+        echo "=== Mémoire ==="
+        free -h
+        
+        echo ""
+        echo "=== Espace disque ==="
+        df -h
+    
+    # Cache pour l'ISO de base Ubuntu
+    - name: Cache Ubuntu base ISO
+      id: cache-iso
+      uses: actions/cache@v3
+      with:
+        path: ~/ubuntu-25.10-live-server-amd64.iso
+        key: ubuntu-25.10-iso-${{ hashFiles('scripts/build-iso.sh') }}
+        restore-keys: |
+          ubuntu-25.10-iso-
+    
+    - name: Download Ubuntu ISO (if not cached)
+      if: steps.cache-iso.outputs.cache-hit != 'true'
+      run: |
+        echo "ISO non trouvée en cache, téléchargement..."
+        cd ~
+        wget --progress=dot:giga -c https://releases.ubuntu.com/25.10/ubuntu-25.10-live-server-amd64.iso
+        
+        echo "Vérification du checksum..."
+        wget -q https://releases.ubuntu.com/25.10/SHA256SUMS
+        if sha256sum -c SHA256SUMS 2>&1 | grep -q "ubuntu-25.10-live-server-amd64.iso: OK"; then
+          echo "✓ Checksum vérifié"
+          rm SHA256SUMS
+        else
+          echo "✗ Checksum invalide !"
+          exit 1
+        fi
+    
+    - name: Verify ISO exists
+      run: |
+        if [ -f ~/ubuntu-25.10-live-server-amd64.iso ]; then
+          echo "✓ ISO présente"
+          ls -lh ~/ubuntu-25.10-live-server-amd64.iso
+        else
+          echo "✗ ISO manquante !"
+          exit 1
+        fi
     
     - name: Make build script executable
       run: chmod +x scripts/build-iso.sh
     
-    - name: Build ISO
-      run: ./scripts/build-iso.sh
+    - name: Build ISO with resource monitoring
+      timeout-minutes: 300  # 5h pour le build
+      run: |
+        # Lancer un monitoring en arrière-plan
+        (
+          while true; do
+            echo "=== [$(date +%H:%M:%S)] Ressources ==="
+            free -h | grep Mem
+            df -h /home | tail -1
+            sleep 300  # Toutes les 5 minutes
+          done
+        ) &
+        MONITOR_PID=$!
+        
+        # Lancer le build
+        ./scripts/build-iso.sh
+        BUILD_EXIT=$?
+        
+        # Arrêter le monitoring
+        kill $MONITOR_PID 2>/dev/null || true
+        
+        exit $BUILD_EXIT
+    
+    - name: Verify ISO was created
+      run: |
+        if [ ! -f ~/iso-build/ubuntu-25.10-custom.iso ]; then
+          echo "ERROR: ISO file not found!"
+          echo "Contenu de ~/iso-build:"
+          ls -la ~/iso-build/ || echo "Répertoire introuvable"
+          exit 1
+        fi
+        
+        echo "✓ ISO créée avec succès"
+        ls -lh ~/iso-build/ubuntu-25.10-custom.iso
     
     - name: Generate checksum
       run: |
         cd ~/iso-build
         sha256sum ubuntu-25.10-custom.iso > ubuntu-25.10-custom.iso.sha256
+        echo "Checksum:"
         cat ubuntu-25.10-custom.iso.sha256
     
     - name: Prepare Ventoy package
       run: |
         mkdir -p ventoy-package
         
-        # Copier l'ISO
+        echo "Copie de l'ISO..."
         cp ~/iso-build/ubuntu-25.10-custom.iso ventoy-package/
         cp ~/iso-build/ubuntu-25.10-custom.iso.sha256 ventoy-package/
         
-        # Créer la structure Ventoy
+        echo "Création de la structure Ventoy..."
         mkdir -p ventoy-package/ventoy/ubuntu-autoinstall
         
-        # Copier les fichiers cloud-init depuis le repo
         cp ventoy/ubuntu-autoinstall/user-data ventoy-package/ventoy/ubuntu-autoinstall/
         cp ventoy/ubuntu-autoinstall/meta-data ventoy-package/ventoy/ubuntu-autoinstall/
         cp ventoy/ventoy.json ventoy-package/ventoy/
         
-        # Copier le logo si présent
         if [ -f "assets/oasis-logo.png" ]; then
           cp assets/oasis-logo.png ventoy-package/ventoy/ubuntu-autoinstall/
         fi
         
-        # Créer un README pour Ventoy
         cat > ventoy-package/README-VENTOY.txt << 'VENTOYREADME'
         Ubuntu Laptop - Package Ventoy
         ===============================
@@ -91,14 +187,18 @@ jobs:
         L'installation démarre automatiquement après 1 seconde.
         VENTOYREADME
         
-        # Afficher la structure
-        echo "Structure du package Ventoy:"
+        echo "Structure du package:"
         find ventoy-package -type f
     
     - name: Create Ventoy archive
       run: |
         tar czf ventoy-package.tar.gz ventoy-package/
         ls -lh ventoy-package.tar.gz
+    
+    - name: Final disk space check
+      run: |
+        echo "Espace disque final:"
+        df -h
     
     - name: Upload ISO artifact
       uses: actions/upload-artifact@v4
@@ -108,6 +208,7 @@ jobs:
           ~/iso-build/ubuntu-25.10-custom.iso
           ~/iso-build/ubuntu-25.10-custom.iso.sha256
         retention-days: 30
+        compression-level: 0  # L'ISO est déjà compressée
     
     - name: Upload Ventoy package
       uses: actions/upload-artifact@v4
@@ -126,4 +227,3 @@ jobs:
           ventoy-package.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
