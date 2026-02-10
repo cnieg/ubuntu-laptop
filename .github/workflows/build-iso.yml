@@ -199,21 +199,14 @@ jobs:
       run: |
         echo "Espace disque final:"
         df -h
+        echo ""
+        echo "Taille du package Ventoy:"
+        ls -lh ventoy-package.tar.gz
     
-    - name: Upload ISO artifact
+    - name: Upload Ventoy package (contient ISO + config)
       uses: actions/upload-artifact@v4
       with:
-        name: ubuntu-25.10-custom-iso
-        path: |
-          ~/iso-build/ubuntu-25.10-custom.iso
-          ~/iso-build/ubuntu-25.10-custom.iso.sha256
-        retention-days: 30
-        compression-level: 0  # L'ISO est déjà compressée
-    
-    - name: Upload Ventoy package
-      uses: actions/upload-artifact@v4
-      with:
-        name: ventoy-package
+        name: ventoy-package-complete
         path: ventoy-package.tar.gz
         retention-days: 30
     
@@ -221,9 +214,19 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          ~/iso-build/ubuntu-25.10-custom.iso
-          ~/iso-build/ubuntu-25.10-custom.iso.sha256
-          ventoy-package.tar.gz
+        files: ventoy-package.tar.gz
+        body: |
+          ## Ubuntu 25.10 Custom ISO - Package Ventoy Complet
+          
+          Ce package contient :
+          - L'ISO Ubuntu 25.10 personnalisée
+          - Le checksum SHA256
+          - Les fichiers de configuration Ventoy (user-data, meta-data, ventoy.json)
+          - Le README d'installation
+          
+          ### Installation rapide
+          1. Téléchargez `ventoy-package.tar.gz`
+          2. Extrayez : `tar xzf ventoy-package.tar.gz`
+          3. Suivez les instructions dans `ventoy-package/README-VENTOY.txt`
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
