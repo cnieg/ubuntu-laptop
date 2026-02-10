@@ -6,6 +6,18 @@ ISO_SOURCE="ubuntu-25.10-live-server-amd64.iso"
 ISO_OUTPUT="ubuntu-25.10-custom.iso"
 WORK_DIR="$HOME/iso-build"
 
+# Fonction pour afficher la progression et les ressources
+show_progress() {
+    echo ""
+    echo "=== $1 ==="
+    echo "Temps écoulé: $SECONDS secondes"
+    echo "Mémoire disponible:"
+    free -h | grep Mem
+    echo "Espace disque:"
+    df -h /home | tail -1
+    echo ""
+}
+
 echo "=== Vérification et installation des dépendances ==="
 REQUIRED_PACKAGES="squashfs-tools xorriso isolinux rsync wget"
 MISSING_PACKAGES=""
@@ -24,12 +36,13 @@ else
     echo "Tous les packages requis sont déjà installés ✓"
 fi
 
-echo ""
-echo "=== Téléchargement de l'ISO Ubuntu 25.10 ==="
+show_progress "Téléchargement de l'ISO Ubuntu 25.10"
+
 if [ ! -f "$HOME/$ISO_SOURCE" ]; then
     echo "ISO non trouvée, téléchargement en cours..."
     cd "$HOME"
-    wget -c https://releases.ubuntu.com/25.10/ubuntu-25.10-live-server-amd64.iso
+    # Utiliser wget avec progression et reprise
+    wget --progress=dot:giga -c https://releases.ubuntu.com/25.10/ubuntu-25.10-live-server-amd64.iso
     
     echo "Vérification du checksum..."
     wget -q https://releases.ubuntu.com/25.10/SHA256SUMS
@@ -44,8 +57,8 @@ else
     echo "ISO déjà présente : $HOME/$ISO_SOURCE ✓"
 fi
 
-echo ""
-echo "=== Nettoyage et préparation ==="
+show_progress "Nettoyage et préparation"
+
 rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
@@ -67,17 +80,21 @@ fi
 
 echo "Fichier squashfs trouvé : $SQUASHFS_PATH"
 
-echo "=== Extraction du contenu de l'ISO ==="
-mkdir -p extract-cd
-sudo rsync -a --exclude="$(basename $SQUASHFS_PATH)" mnt/ extract-cd/
+show_progress "Extraction du contenu de l'ISO"
 
-echo "=== Extraction du filesystem ==="
-sudo unsquashfs "$SQUASHFS_PATH"
+mkdir -p extract-cd
+sudo rsync -a --info=progress2 --exclude="$(basename $SQUASHFS_PATH)" mnt/ extract-cd/
+
+show_progress "Extraction du filesystem (peut prendre 10-15 min)"
+
+# Limiter l'utilisation de la mémoire pour unsquashfs
+sudo unsquashfs -processors 2 "$SQUASHFS_PATH"
 sudo mv squashfs-root edit
 
 sudo umount mnt
 
-echo "=== Préparation du chroot ==="
+show_progress "Préparation du chroot"
+
 sudo cp /etc/resolv.conf edit/etc/
 sudo mount --bind /dev edit/dev
 sudo mount --bind /run edit/run
@@ -86,7 +103,8 @@ sudo mount -t proc proc edit/proc
 sudo mount -t sysfs sys edit/sys
 sudo mount -t devpts devpts edit/dev/pts
 
-echo "=== Personnalisation du système ==="
+show_progress "Personnalisation du système (peut prendre 20-30 min)"
+
 sudo chroot edit /bin/bash << 'CHROOT_COMMANDS'
 set -e
 
@@ -94,30 +112,34 @@ export DEBIAN_FRONTEND=noninteractive
 export LC_ALL=C
 export LANG=C
 
-echo ">>> Mise à jour et installation des packages"
-apt update && apt upgrade -y
+echo ">>> [$(date +%H:%M:%S)] Mise à jour des sources"
+apt update
 
-# NetworkManager et backend Wi-Fi moderne
+echo ">>> [$(date +%H:%M:%S)] Upgrade du système"
+apt upgrade -y
+
+echo ">>> [$(date +%H:%M:%S)] Installation NetworkManager et iwd"
 apt install -y network-manager network-manager-openconnect network-manager-openconnect-gnome iwd
 
-# GNOME Desktop Environment
+echo ">>> [$(date +%H:%M:%S)] Installation GNOME (étape la plus longue)"
 apt install -y software-properties-common ubuntu-desktop-minimal gnome-session gnome-shell gdm3
 
-# Install essential applications individually
+echo ">>> [$(date +%H:%M:%S)] Installation applications GNOME essentielles"
 apt install -y nautilus gnome-terminal gnome-text-editor gnome-system-monitor gnome-control-center
 
-# Install additional utilities as needed
+echo ">>> [$(date +%H:%M:%S)] Installation utilitaires GNOME"
 apt install -y gnome-tweaks gnome-shell-extensions dconf-editor
 
-# Outils de base
+echo ">>> [$(date +%H:%M:%S)] Installation outils de base"
 apt install -y btop curl git wget net-tools
 
-# Filesystem et chiffrement
+echo ">>> [$(date +%H:%M:%S)] Installation filesystem et chiffrement"
 apt install -y btrfs-progs cryptsetup cryptsetup-initramfs
 
-# Automatisation
+echo ">>> [$(date +%H:%M:%S)] Installation ansible"
 apt install -y ansible
 
+echo ">>> [$(date +%H:%M:%S)] Configuration des services"
 # Désactiver wpa_supplicant (conflit avec iwd)
 systemctl disable wpa_supplicant 2>/dev/null || true
 systemctl mask wpa_supplicant 2>/dev/null || true
@@ -128,14 +150,14 @@ systemctl disable iwd 2>/dev/null || true
 systemctl stop NetworkManager 2>/dev/null || true
 systemctl stop iwd 2>/dev/null || true
 
-echo ">>> Configuration de NetworkManager pour utiliser iwd"
+echo ">>> [$(date +%H:%M:%S)] Configuration de NetworkManager pour utiliser iwd"
 mkdir -p /etc/NetworkManager/conf.d
 cat > /etc/NetworkManager/conf.d/wifi-backend.conf << 'NMCONF'
 [device]
 wifi.backend=iwd
 NMCONF
 
-echo ">>> Configuration de iwd"
+echo ">>> [$(date +%H:%M:%S)] Configuration de iwd"
 mkdir -p /etc/iwd
 cat > /etc/iwd/main.conf << 'IWDCONF'
 [General]
@@ -145,15 +167,16 @@ EnableNetworkConfiguration=false
 NameResolvingService=systemd
 IWDCONF
 
-echo ">>> Nettoyage"
+echo ">>> [$(date +%H:%M:%S)] Nettoyage"
 apt clean
 rm -rf /tmp/* /var/tmp/* /var/cache/apt/archives/*.deb
 rm -f /etc/resolv.conf
 
+echo ">>> [$(date +%H:%M:%S)] Personnalisation terminée"
 exit
 CHROOT_COMMANDS
 
-echo "=== Nettoyage du chroot ==="
+show_progress "Nettoyage du chroot"
 
 sudo umount edit/dev/pts || true
 sudo umount edit/proc || true
@@ -161,10 +184,13 @@ sudo umount -R edit/sys 2>/dev/null || sudo umount edit/sys || true
 sudo umount edit/dev || true
 sudo umount edit/run || true
 
-echo "=== Recompression du filesystem ==="
+show_progress "Recompression du filesystem (peut prendre 15-20 min)"
+
 SQUASHFS_RELATIVE=$(echo "$SQUASHFS_PATH" | sed "s|mnt/||")
 sudo rm -f "extract-cd/$SQUASHFS_RELATIVE"
-sudo mksquashfs edit "extract-cd/$SQUASHFS_RELATIVE" -comp xz -b 1M
+
+# Limiter les processeurs pour éviter de saturer la mémoire
+sudo mksquashfs edit "extract-cd/$SQUASHFS_RELATIVE" -comp xz -b 1M -processors 2 -progress
 
 SQUASHFS_DIR=$(dirname "extract-cd/$SQUASHFS_RELATIVE")
 if [ -f "$SQUASHFS_DIR/filesystem.size" ]; then
@@ -172,15 +198,16 @@ if [ -f "$SQUASHFS_DIR/filesystem.size" ]; then
     sudo du -sx --block-size=1 edit | cut -f1 | sudo tee "$SQUASHFS_DIR/filesystem.size"
 fi
 
+# Nettoyer pour libérer de l'espace
 sudo rm -rf edit
+show_progress "Filesystem supprimé, espace libéré"
 
 echo "=== Mise à jour des checksums ==="
 cd extract-cd
 sudo rm -f md5sum.txt SHA256SUMS
 find -type f -print0 | sudo xargs -0 md5sum | grep -v "isolinux/boot.cat\|boot.catalog" | sudo tee md5sum.txt
 
-echo ""
-echo "=== Recherche des fichiers de boot ==="
+show_progress "Recherche des fichiers de boot"
 
 if [ -f "./isolinux/isolinux.bin" ]; then
     BOOT_TYPE="legacy_isolinux"
@@ -208,8 +235,7 @@ echo "Type de boot : $BOOT_TYPE"
 echo "Boot BIOS : $BIOS_BOOT"
 echo "Boot EFI : $EFI_BOOT"
 
-echo ""
-echo "=== Création de l'ISO ==="
+show_progress "Création de l'ISO finale"
 
 ISOHDPFX=$(find /usr -name "isohdpfx.bin" 2>/dev/null | head -n 1)
 if [ -n "$ISOHDPFX" ]; then
@@ -251,6 +277,8 @@ fi
 if [ $? -eq 0 ]; then
     cd "$WORK_DIR"
     
+    show_progress "BUILD TERMINÉ AVEC SUCCÈS !"
+    
     echo ""
     echo "========================================="
     echo "✓ ISO CRÉÉE AVEC SUCCÈS"
@@ -259,6 +287,8 @@ if [ $? -eq 0 ]; then
     echo "Fichier : $WORK_DIR/$ISO_OUTPUT"
     ls -lh "$ISO_OUTPUT"
     
+    echo ""
+    echo "Temps total de build: $SECONDS secondes ($((SECONDS/60)) minutes)"
     echo ""
     echo "=== Packages installés ==="
     echo "  • NetworkManager + OpenConnect + iwd (désactivés)"
@@ -281,4 +311,3 @@ else
     echo "✗ ERREUR lors de la création de l'ISO"
     exit 1
 fi
-
