@@ -104,18 +104,10 @@ apt install -y network-manager network-manager-openconnect network-manager-openc
 apt install -y software-properties-common ubuntu-desktop-minimal gnome-session gnome-shell gdm3
 
 # Install essential applications individually
-apt install -y \
-    nautilus \              # File manager
-    gnome-terminal \        # Terminal emulator
-    gnome-text-editor \     # Text editor
-    gnome-system-monitor \  # System monitor
-    gnome-control-center    # Settings application
+apt install -y nautilus gnome-terminal gnome-text-editor gnome-system-monitor gnome-control-center
 
 # Install additional utilities as needed
-apt install -y \
-    gnome-tweaks \          # Advanced settings
-    gnome-shell-extensions \ # Extension support
-    dconf-editor            # Configuration editor
+apt install -y gnome-tweaks gnome-shell-extensions dconf-editor
 
 # Outils de base
 apt install -y btop curl git wget net-tools
