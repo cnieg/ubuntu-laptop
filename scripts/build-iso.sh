@@ -82,13 +82,13 @@ sudo cp /etc/resolv.conf edit/etc/
 sudo mount --bind /dev edit/dev
 sudo mount --bind /run edit/run
 
+sudo mount -t proc proc edit/proc
+sudo mount -t sysfs sys edit/sys
+sudo mount -t devpts devpts edit/dev/pts
+
 echo "=== Personnalisation du système ==="
 sudo chroot edit /bin/bash << 'CHROOT_COMMANDS'
 set -e
-
-mount -t proc none /proc
-mount -t sysfs none /sys
-mount -t devpts none /dev/pts
 
 export DEBIAN_FRONTEND=noninteractive
 export LC_ALL=C
@@ -150,15 +150,16 @@ apt clean
 rm -rf /tmp/* /var/tmp/* /var/cache/apt/archives/*.deb
 rm -f /etc/resolv.conf
 
-umount /proc
-umount /sys  
-umount /dev/pts
 exit
 CHROOT_COMMANDS
 
 echo "=== Nettoyage du chroot ==="
-sudo umount edit/dev
-sudo umount edit/run
+
+sudo umount edit/dev/pts || true
+sudo umount edit/proc || true
+sudo umount -R edit/sys 2>/dev/null || sudo umount edit/sys || true
+sudo umount edit/dev || true
+sudo umount edit/run || true
 
 echo "=== Recompression du filesystem ==="
 SQUASHFS_RELATIVE=$(echo "$SQUASHFS_PATH" | sed "s|mnt/||")
