@@ -119,16 +119,7 @@ echo ">>> [$(date +%H:%M:%S)] Upgrade du système"
 apt upgrade -y
 
 echo ">>> [$(date +%H:%M:%S)] Installation NetworkManager et iwd"
-apt install -y network-manager network-manager-openconnect network-manager-openconnect-gnome iwd
-
-echo ">>> [$(date +%H:%M:%S)] Installation GNOME (étape la plus longue)"
-apt install -y software-properties-common ubuntu-desktop-minimal gnome-session gnome-shell gdm3
-
-echo ">>> [$(date +%H:%M:%S)] Installation applications GNOME essentielles"
-apt install -y nautilus gnome-terminal gnome-text-editor gnome-system-monitor gnome-control-center
-
-echo ">>> [$(date +%H:%M:%S)] Installation utilitaires GNOME"
-apt install -y gnome-tweaks gnome-shell-extensions dconf-editor
+apt install -y network-manager network-manager-openconnect iwd
 
 echo ">>> [$(date +%H:%M:%S)] Installation outils de base"
 apt install -y btop curl git wget net-tools
