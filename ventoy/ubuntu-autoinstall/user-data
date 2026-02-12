@@ -134,10 +134,7 @@ autoinstall:
   #   - package2
   
   # Configuration post-installation
-  late-commands:
-    # Copier le logo depuis le CDROM vers la machine
-    - cp /cdrom/oasis-logo.png /target/usr/share/pixmaps/oasis-logo.png || true
-    
+  late-commands:   
     # Nettoyer les fichiers netplan créés par l'installeur
     - rm -f /target/etc/netplan/*.yaml
     
