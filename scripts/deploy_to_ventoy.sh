@@ -64,20 +64,6 @@ echo "=== Création de la structure cloud-init ==="
 # Créer les dossiers
 mkdir -p "$VENTOY_PATH/ventoy/ubuntu-autoinstall"
 
-# Copier le logo si présent
-if [ -f "oasis-logo.png" ]; then
-    echo "Copie du oasis-logo.png..."
-    cp oasis-logo.png "$VENTOY_PATH/ventoy/ubuntu-autoinstall/"
-elif [ -f "$HOME/oasis-logo.png" ]; then
-    echo "Copie du oasis-logo.png..."
-    cp "$HOME/oasis-logo.png" "$VENTOY_PATH/ventoy/ubuntu-autoinstall/"
-elif [ -f "assets/oasis-logo.png" ]; then
-    echo "Copie du oasis-logo.png depuis assets/..."
-    cp assets/oasis-logo.png "$VENTOY_PATH/ventoy/ubuntu-autoinstall/"
-else
-    echo "⚠️  oasis-logo.png non trouvé (optionnel)"
-fi
-
 # Créer ventoy.json
 echo "Création de ventoy.json..."
 cat > "$VENTOY_PATH/ventoy/ventoy.json" << 'JSONEOF'

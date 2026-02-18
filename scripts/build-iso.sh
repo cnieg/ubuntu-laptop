@@ -115,9 +115,6 @@ export LANG=C
 echo ">>> [$(date +%H:%M:%S)] Mise à jour des sources"
 apt update
 
-echo ">>> [$(date +%H:%M:%S)] Upgrade du système"
-apt upgrade -y
-
 echo ">>> [$(date +%H:%M:%S)] Installation NetworkManager et iwd"
 apt install -y network-manager network-manager-openconnect iwd
 

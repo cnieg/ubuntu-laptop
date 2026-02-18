@@ -148,11 +148,7 @@ jobs:
         cp ventoy/ubuntu-autoinstall/user-data ventoy-package/ventoy/ubuntu-autoinstall/
         cp ventoy/ubuntu-autoinstall/meta-data ventoy-package/ventoy/ubuntu-autoinstall/
         cp ventoy/ventoy.json ventoy-package/ventoy/
-        
-        if [ -f "assets/oasis-logo.png" ]; then
-          cp assets/oasis-logo.png ventoy-package/ventoy/ubuntu-autoinstall/
-        fi
-        
+                
         cat > ventoy-package/README-VENTOY.txt << 'VENTOYREADME'
         Ubuntu Laptop - Package Ventoy
         ===============================
@@ -172,8 +168,7 @@ jobs:
             ├── ventoy.json
             └── ubuntu-autoinstall/
                 ├── user-data
-                ├── meta-data
-                └── oasis-logo.png
+                └── meta-data
         
         Configuration:
         --------------
