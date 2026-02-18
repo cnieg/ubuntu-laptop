@@ -51,18 +51,46 @@ jobs:
         echo ""
         echo "=== Espace disque ==="
         df -h
-    
-    # Cache pour l'ISO de base Ubuntu
+
+    # Récupérer le SHA256 officiel de Canonical
+    - name: Get official ISO SHA256
+      id: get-sha
+      run: |
+        wget -q https://releases.ubuntu.com/25.10/SHA256SUMS -O /tmp/SHA256SUMS
+        OFFICIAL_SHA=$(grep "ubuntu-25.10-live-server-amd64.iso" /tmp/SHA256SUMS | awk '{print $1}')
+        echo "official_sha=$OFFICIAL_SHA" >> $GITHUB_OUTPUT
+        echo "SHA256 officiel Canonical: $OFFICIAL_SHA"
+
+    # Cache basé sur le SHA256 officiel (pas sur le script)
     - name: Cache Ubuntu base ISO
       id: cache-iso
       uses: actions/cache@v3
       with:
         path: ~/ubuntu-25.10-live-server-amd64.iso
-        key: ubuntu-25.10-iso-${{ hashFiles('scripts/build-iso.sh') }}
+        key: ubuntu-25.10-iso-${{ steps.get-sha.outputs.official_sha }}
         restore-keys: |
           ubuntu-25.10-iso-
-    
-    - name: Download Ubuntu ISO (if not cached)
+
+    # Vérifier l'intégrité de l'ISO en cache (si elle existe)
+    - name: Verify cached ISO integrity
+      if: steps.cache-iso.outputs.cache-hit == 'true'
+      run: |
+        echo "ISO trouvée en cache, vérification de l'intégrité..."
+        CACHED_SHA=$(sha256sum ~/ubuntu-25.10-live-server-amd64.iso | awk '{print $1}')
+        OFFICIAL_SHA="${{ steps.get-sha.outputs.official_sha }}"
+        
+        if [ "$CACHED_SHA" = "$OFFICIAL_SHA" ]; then
+          echo "✓ ISO en cache valide (SHA256: $CACHED_SHA)"
+        else
+          echo "✗ ISO en cache corrompue ou obsolète"
+          echo "  Cached:   $CACHED_SHA"
+          echo "  Official: $OFFICIAL_SHA"
+          rm ~/ubuntu-25.10-live-server-amd64.iso
+          exit 1
+        fi
+
+    # Télécharger uniquement si pas en cache OU si vérification a échoué
+    - name: Download Ubuntu ISO (if not cached or corrupted)
       if: steps.cache-iso.outputs.cache-hit != 'true'
       run: |
         echo "ISO non trouvée en cache, téléchargement..."
@@ -70,20 +98,25 @@ jobs:
         wget --progress=dot:giga -c https://releases.ubuntu.com/25.10/ubuntu-25.10-live-server-amd64.iso
         
         echo "Vérification du checksum..."
-        wget -q https://releases.ubuntu.com/25.10/SHA256SUMS
-        if sha256sum -c SHA256SUMS 2>&1 | grep -q "ubuntu-25.10-live-server-amd64.iso: OK"; then
-          echo "✓ Checksum vérifié"
-          rm SHA256SUMS
+        DOWNLOADED_SHA=$(sha256sum ubuntu-25.10-live-server-amd64.iso | awk '{print $1}')
+        OFFICIAL_SHA="${{ steps.get-sha.outputs.official_sha }}"
+        
+        if [ "$DOWNLOADED_SHA" = "$OFFICIAL_SHA" ]; then
+          echo "✓ Checksum vérifié avec succès"
+          echo "  SHA256: $DOWNLOADED_SHA"
         else
           echo "✗ Checksum invalide !"
+          echo "  Downloaded: $DOWNLOADED_SHA"
+          echo "  Official:   $OFFICIAL_SHA"
           exit 1
         fi
-    
+
     - name: Verify ISO exists
       run: |
         if [ -f ~/ubuntu-25.10-live-server-amd64.iso ]; then
-          echo "✓ ISO présente"
+          echo "✓ ISO présente et vérifiée"
           ls -lh ~/ubuntu-25.10-live-server-amd64.iso
+          sha256sum ~/ubuntu-25.10-live-server-amd64.iso
         else
           echo "✗ ISO manquante !"
           exit 1
