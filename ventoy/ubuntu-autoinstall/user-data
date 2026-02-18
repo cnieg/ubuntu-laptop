@@ -20,6 +20,8 @@ autoinstall:
       # Disque principal
       - type: disk
         id: disk0
+        match:
+          size: largest
         ptable: gpt
         wipe: superblock-recursive
         preserve: false
@@ -87,27 +89,33 @@ autoinstall:
         fstype: btrfs
         label: rootfs
 
-      # Sous-volumes btrfs
+      # 🔹 Mount temporaire du FS btrfs (obligatoire)
+      - type: mount
+        id: mnt-btrfs-tmp
+        device: fmt-root
+        path: /
+
+      # 🔹 Sous-volumes btrfs (doivent pointer vers cryptroot)
       - type: btrfs_subvolume
         id: sv-root
-        volume: fmt-root
+        volume: cryptroot
         name: "@"
 
       - type: btrfs_subvolume
         id: sv-home
-        volume: fmt-root
+        volume: cryptroot
         name: "@home"
 
-      # Montages avec sous-volumes
+      # 🔹 Montages définitifs (device = cryptroot)
       - type: mount
         id: mnt-root
-        device: fmt-root
+        device: cryptroot
         path: /
         options: subvol=@,compress=zstd
 
       - type: mount
         id: mnt-home
-        device: fmt-root
+        device: cryptroot
         path: /home
         options: subvol=@home,compress=zstd
 
