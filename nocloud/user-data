@@ -1,0 +1,116 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  locale: fr_FR.UTF-8
+  keyboard:
+    layout: fr
+
+  identity:
+    hostname: laptop
+    username: admin
+    password: "$6$rounds=4096$REPLACE_ME$REPLACE_ME_HASH"
+
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  packages:
+    - btrfs-progs
+    - cryptsetup
+    - tpm2-tools
+    - rsync
+
+  early-commands:
+    - mkdir -p /run/crypt
+    - umask 077
+    - openssl rand -out /run/crypt/root.key 64
+    - openssl rand -out /run/crypt/swap.key 64
+    - bash /cdrom/NOLOUD/prepare-disk.sh
+
+  storage:
+    config:
+      - type: disk
+        id: disk0
+        path: /dev/nvme0n1
+        preserve: true
+
+      - type: partition
+        id: efi-part
+        device: disk0
+        number: 1
+        preserve: true
+
+      - type: format
+        id: efi-fs
+        volume: efi-part
+        fstype: fat32
+        preserve: true
+
+      - type: mount
+        path: /boot/efi
+        device: efi-fs
+
+      - type: partition
+        id: swap-part
+        device: disk0
+        number: 2
+        preserve: true
+
+      - type: dm_crypt
+        id: cryptswap
+        dm_name: cryptswap
+        volume: swap-part
+        keyfile: /run/crypt/swap.key
+        preserve: true
+
+      - type: format
+        id: swap-fs
+        fstype: swap
+        volume: cryptswap
+
+      - type: partition
+        id: root-part
+        device: disk0
+        number: 3
+        preserve: true
+
+      - type: dm_crypt
+        id: cryptroot
+        dm_name: cryptroot
+        volume: root-part
+        keyfile: /run/crypt/root.key
+        preserve: true
+
+      - type: mount
+        path: /
+        device: cryptroot
+        fstype: btrfs
+        options: "subvol=@,compress=zstd,noatime,ssd,space_cache=v2"
+
+      - type: mount
+        path: /home
+        device: cryptroot
+        fstype: btrfs
+        options: "subvol=@home,compress=zstd,noatime,ssd,space_cache=v2"
+
+      - type: mount
+        path: /var
+        device: cryptroot
+        fstype: btrfs
+        options: "subvol=@var,compress=zstd,noatime,ssd,space_cache=v2"
+
+      - type: mount
+        path: /.snapshots
+        device: cryptroot
+        fstype: btrfs
+        options: "subvol=@snapshots,compress=zstd,noatime,ssd,space_cache=v2"
+
+  late-commands:
+    - curtin in-target -- bash -lc 'install -d -m 0700 /etc/cryptsetup-keys.d && install -m 0400 /run/crypt/swap.key /etc/cryptsetup-keys.d/cryptswap.key && SWAP_UUID="$(blkid -s UUID -o value /dev/nvme0n1p2)" && grep -q "^cryptswap " /etc/crypttab || echo "cryptswap UUID=${SWAP_UUID} /etc/cryptsetup-keys.d/cryptswap.key luks" >> /etc/crypttab && install -d -m 0755 /etc/cryptsetup-initramfs && echo "KEYFILE_PATTERN=/etc/cryptsetup-keys.d/*.key" > /etc/cryptsetup-initramfs/conf-hook && update-initramfs -u'
+
+    - curtin in-target -- bash -lc 'echo "RESUME=/dev/mapper/cryptswap" > /etc/initramfs-tools/conf.d/resume && update-initramfs -u'
+
+    - bash -lc 'install -d -m 0700 /target/root/recovery && umask 077 && openssl rand -out /target/root/recovery/luks-root-recovery.key 32 && cryptsetup luksAddKey /dev/nvme0n1p3 /target/root/recovery/luks-root-recovery.key --key-file /run/crypt/root.key'
+
+    - curtin in-target -- bash -lc 'apt-get update && apt-get install -y tpm2-tools && systemd-cryptenroll --tpm2-device=auto /dev/nvme0n1p3 || true'
