@@ -140,7 +140,7 @@ jobs:
         MONITOR_PID=$!
         
         # Lancer le build
-        ./scripts/build-iso.sh
+        ./scripts/build-iso.sh ~/ubuntu-25.10-live-server-amd64.iso ~/iso-build/ubuntu-25.10-custom.iso
         BUILD_EXIT=$?
         
         # Arrêter le monitoring
@@ -178,8 +178,8 @@ jobs:
         echo "Création de la structure Ventoy..."
         mkdir -p ventoy-package/ventoy/ubuntu-autoinstall
         
-        cp ventoy/ubuntu-autoinstall/user-data ventoy-package/ventoy/ubuntu-autoinstall/
-        cp ventoy/ubuntu-autoinstall/meta-data ventoy-package/ventoy/ubuntu-autoinstall/
+        cp nocloud/ubuntu-autoinstall/user-data ventoy-package/ventoy/ubuntu-autoinstall/
+        cp nocloud/meta-data ventoy-package/ventoy/ubuntu-autoinstall/
         cp ventoy/ventoy.json ventoy-package/ventoy/
                 
         cat > ventoy-package/README-VENTOY.txt << 'VENTOYREADME'
