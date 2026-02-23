@@ -15,6 +15,24 @@ OUTDIR="$(dirname "$ISO_OUT")"
 
 mkdir -p "$WORKDIR" "$OUTDIR"
 
+echo "=== Vérification et installation des dépendances ==="
+REQUIRED_PACKAGES="squashfs-tools xorriso isolinux rsync wget"
+MISSING_PACKAGES=""
+
+for pkg in $REQUIRED_PACKAGES; do
+    if ! dpkg -l | grep -q "^ii  $pkg"; then
+        MISSING_PACKAGES="$MISSING_PACKAGES $pkg"
+    fi
+done
+
+if [ -n "$MISSING_PACKAGES" ]; then
+    echo "Installation des packages manquants :$MISSING_PACKAGES"
+    sudo apt update
+    sudo apt install -y $MISSING_PACKAGES
+else
+    echo "Tous les packages requis sont déjà installés ✓"
+fi
+
 echo "[build-iso] Extract ISO..."
 rm -rf "$WORKDIR/iso"
 mkdir -p "$WORKDIR/iso"
