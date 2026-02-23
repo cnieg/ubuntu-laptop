@@ -38,6 +38,7 @@ rm -rf "$WORKDIR/iso"
 mkdir -p "$WORKDIR/iso"
 xorriso -osirrox on -indev "$ISO_IN" -extract / "$WORKDIR/iso" >/dev/null 2>&1
 
+# GitHub runner: fichiers extraits parfois en read-only -> sed -i échoue
 chmod -R u+rwX "$WORKDIR/iso"
 
 echo "[build-iso] Inject NOLOUD..."
@@ -51,19 +52,36 @@ chmod +x "$WORKDIR/iso/NOLOUD/prepare-disk.sh"
 touch "$WORKDIR/iso/NOLOUD/ARMED"
 
 echo "[build-iso] Patch boot parameters..."
+
+# Patch GRUB (UEFI) si présent
 if [[ -f "$WORKDIR/iso/boot/grub/grub.cfg" ]]; then
   sed -i 's/---/ autoinstall ds=nocloud;s=\/cdrom\/NOLOUD\/ ---/g' "$WORKDIR/iso/boot/grub/grub.cfg"
+else
+  echo "[build-iso] WARN: grub.cfg not found at /boot/grub/grub.cfg (OK if ISO uses a different path)"
 fi
 
+# Patch ISOLINUX (BIOS legacy) si présent
 if [[ -f "$WORKDIR/iso/isolinux/txt.cfg" ]]; then
   sed -i 's/---/ autoinstall ds=nocloud;s=\/cdrom\/NOLOUD\/ ---/g' "$WORKDIR/iso/isolinux/txt.cfg"
 fi
 
-echo "[build-iso] Repack ISO..."
+echo "[build-iso] Repack ISO (boot replay, robust)..."
 rm -f "$ISO_OUT"
 
-xorriso -as mkisofs   -r -V "UBUNTU_FACTORY"   -o "$ISO_OUT"   -J -l   -c isolinux/boot.cat   -b isolinux/isolinux.bin   -no-emul-boot -boot-load-size 4 -boot-info-table   -eltorito-alt-boot   -e boot/grub/efi.img   -no-emul-boot   "$WORKDIR/iso" >/dev/null 2>&1 || {
-    echo "[build-iso] Repack failed. Your ISO layout may differ."
+# IMPORTANT:
+# -boot_image any replay = xorriso rejoue la config boot de l'ISO source (BIOS/UEFI),
+# ce qui évite d'avoir à deviner les bons chemins (efi.img/isolinux...) qui varient.
+xorriso \
+  -indev "$ISO_IN" \
+  -outdev "$ISO_OUT" \
+  -volid "UBUNTU_FACTORY" \
+  -map "$WORKDIR/iso" / \
+  -boot_image any replay \
+  -compliance no_emul_toc \
+  -padding 0 >/dev/null 2>&1 || {
+    echo "[build-iso] Repack failed even with boot replay."
+    echo "[build-iso] Tip: print ISO boot report for debugging:"
+    echo "         xorriso -indev \"$ISO_IN\" -report_el_torito as_mkisofs"
     exit 1
   }
 
