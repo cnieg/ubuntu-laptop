@@ -38,6 +38,8 @@ rm -rf "$WORKDIR/iso"
 mkdir -p "$WORKDIR/iso"
 xorriso -osirrox on -indev "$ISO_IN" -extract / "$WORKDIR/iso" >/dev/null 2>&1
 
+chmod -R u+rwX "$WORKDIR/iso
+
 echo "[build-iso] Inject NOLOUD..."
 rm -rf "$WORKDIR/iso/NOLOUD"
 mkdir -p "$WORKDIR/iso/NOLOUD"
