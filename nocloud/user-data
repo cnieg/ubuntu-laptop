@@ -70,29 +70,6 @@ autoinstall:
         path: /boot/efi
 
       - type: partition
-        id: swap-part
-        device: disk0
-        number: 2
-        preserve: true
-
-      - type: dm_crypt
-        id: cryptswap
-        dm_name: cryptswap
-        volume: swap-part
-        keyfile: /run/crypt/swap.key
-        preserve: true
-
-      - type: format
-        id: swap-fs
-        volume: cryptswap
-        fstype: swap
-
-      - type: mount
-        id: mount-swap
-        device: swap-fs
-        path: none
-
-      - type: partition
         id: root-part
         device: disk0
         number: 3
@@ -104,12 +81,6 @@ autoinstall:
         volume: root-part
         keyfile: /run/crypt/root.key
         preserve: true
-
-      # on définit un "format" btrfs au dessus du dm_crypt
-      - type: format
-        id: root-btrfs
-        volume: cryptroot
-        fstype: btrfs
 
       # mounts des subvolumes
       - type: mount
