@@ -171,14 +171,14 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ubuntu-custom ISO
-        path: ubuntu-25.10-custom.iso
+        path: ~/iso-build/ubuntu-25.10-custom.iso
         retention-days: 30
     
     - name: Create Release (if tag)
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: ubuntu-25.10-custom.iso
+        files: ~/iso-build/ubuntu-25.10-custom.iso
         body: |
           ## Ubuntu 25.10 Custom ISO 
           
