@@ -178,7 +178,7 @@ jobs:
         echo "Création de la structure Ventoy..."
         mkdir -p ventoy-package/ventoy/ubuntu-autoinstall
         
-        cp nocloud/ubuntu-autoinstall/user-data ventoy-package/ventoy/ubuntu-autoinstall/
+        cp nocloud/user-data ventoy-package/ventoy/ubuntu-autoinstall/
         cp nocloud/meta-data ventoy-package/ventoy/ubuntu-autoinstall/
         cp ventoy/ventoy.json ventoy-package/ventoy/
                 
