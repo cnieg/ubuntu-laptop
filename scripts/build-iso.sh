@@ -38,7 +38,7 @@ rm -rf "$WORKDIR/iso"
 mkdir -p "$WORKDIR/iso"
 xorriso -osirrox on -indev "$ISO_IN" -extract / "$WORKDIR/iso" >/dev/null 2>&1
 
-# GitHub runner: fichiers extraits parfois en read-only -> sed -i échoue
+# rendre l'arborescence modifiable (CI)
 chmod -R u+rwX "$WORKDIR/iso"
 
 echo "[build-iso] Inject NOLOUD..."
@@ -47,23 +47,21 @@ mkdir -p "$WORKDIR/iso/NOLOUD"
 cp -a "$ROOT_DIR/nocloud/." "$WORKDIR/iso/NOLOUD/"
 cp -a "$ROOT_DIR/scripts/prepare-disk.sh" "$WORKDIR/iso/NOLOUD/prepare-disk.sh"
 chmod +x "$WORKDIR/iso/NOLOUD/prepare-disk.sh"
+cp -a "$ROOT_DIR/scripts/prepare-proxy.sh" "$WORKDIR/iso/NOLOUD/prepare-proxy.sh"
+chmod +x "$WORKDIR/iso/NOLOUD/prepare-proxy.sh"
+cp -a "$ROOT_DIR/scripts/install-proxy-autoswitch.sh" "$WORKDIR/iso/NOLOUD/install-proxy-autoswitch.sh"
+chmod +x "$WORKDIR/iso/NOLOUD/install-proxy-autoswitch.sh"
 
 # Arm by default (remove if you want manual arming)
 touch "$WORKDIR/iso/NOLOUD/ARMED"
 
 echo "[build-iso] Patch boot parameters..."
 
-# Patch GRUB (UEFI) si présent
-if [[ -f "$WORKDIR/iso/boot/grub/grub.cfg" ]]; then
-  sed -i 's/---/ autoinstall ds=nocloud;s=\/cdrom\/NOLOUD\/ ---/g' "$WORKDIR/iso/boot/grub/grub.cfg"
-else
-  echo "[build-iso] WARN: grub.cfg not found at /boot/grub/grub.cfg (OK if ISO uses a different path)"
-fi
-
-# Patch ISOLINUX (BIOS legacy) si présent
-if [[ -f "$WORKDIR/iso/isolinux/txt.cfg" ]]; then
-  sed -i 's/---/ autoinstall ds=nocloud;s=\/cdrom\/NOLOUD\/ ---/g' "$WORKDIR/iso/isolinux/txt.cfg"
-fi
+echo "[build-iso] Patch boot parameters..."
+for f in   "$WORKDIR/iso/boot/grub/grub.cfg"   "$WORKDIR/iso/boot/grub/loopback.cfg"   "$WORKDIR/iso/EFI/boot/grub.cfg"   "$WORKDIR/iso/isolinux/txt.cfg"
+do
+  [[ -f "$f" ]] && sed -i 's/---/ autoinstall ds=nocloud;s=\/cdrom\/NOLOUD\/ ---/g' "$f"
+done
 
 echo "[build-iso] Repack ISO (boot replay, robust)..."
 rm -f "$ISO_OUT"

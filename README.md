@@ -1,21 +1,20 @@
-# Ubuntu Laptop Factory USB (NVMe)
+# Ubuntu Laptop Factory USB (NVMe) — Autoinstall
 
-Factory autoinstall ISO for Ubuntu Server 25.10.
+- NVMe only: /dev/nvme0n1
+- EFI 512MiB, Swap 32GiB (LUKS2), Root (LUKS2) + Btrfs subvolumes (@, @home, @var, @snapshots)
+- Hibernation: swap LUKS with persistent keyfile in initramfs
+- TPM auto-unlock for root
+- Proxy nomade: active/désactive proxy selon IP 172.30/172.31
+- Factory mode: wipe only if /cdrom/NOLOUD/ARMED exists
 
-## Features
-- NVMe only (/dev/nvme0n1)
-- EFI + LUKS swap (32GB) + LUKS root
-- Btrfs subvolumes (@, @home, @var, @snapshots)
-- TPM auto-unlock
-- Hibernation supported
-- Recovery key generated
-- Zero prompt factory mode (ARMED file required)
+## Build ISO
+```bash
+chmod +x scripts/*.sh
+./scripts/build-iso.sh ubuntu-25.10-live-server-amd64.iso build/ubuntu-25.10-factory.iso
+```
 
-## Usage
-1. Replace password hash in nocloud/user-data
-2. Add ARMED file inside NOLOUD/ to enable wipe
-3. Build ISO using Cubic or custom tooling
-4. Boot and wait
-
-Recovery key will be stored in:
-/root/recovery/luks-root-recovery.key
+## Proxy nomade
+Après install, un timer systemd applique ou retire le proxy automatiquement:
+- /etc/proxy-autoswitch.conf
+- /usr/local/sbin/proxy-autoswitch
+- systemd: proxy-autoswitch.timer
