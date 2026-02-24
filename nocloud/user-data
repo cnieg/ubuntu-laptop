@@ -64,8 +64,9 @@ autoinstall:
         preserve: true
 
       - type: mount
-        path: /boot/efi
+        id: mount-efi
         device: efi-fs
+        path: /boot/efi
 
       - type: partition
         id: swap-part
@@ -82,8 +83,13 @@ autoinstall:
 
       - type: format
         id: swap-fs
-        fstype: swap
         volume: cryptswap
+        fstype: swap
+
+      - type: mount
+        id: mount-swap
+        device: swap-fs
+        path: none
 
       - type: partition
         id: root-part
@@ -98,28 +104,35 @@ autoinstall:
         keyfile: /run/crypt/root.key
         preserve: true
 
-      - type: mount
-        path: /
-        device: cryptroot
+      # on définit un "format" btrfs au dessus du dm_crypt
+      - type: format
+        id: root-btrfs
+        volume: cryptroot
         fstype: btrfs
+
+      # mounts des subvolumes
+      - type: mount
+        id: mount-root
+        device: root-btrfs
+        path: /
         options: "subvol=@,compress=zstd,noatime,ssd,space_cache=v2"
 
       - type: mount
+        id: mount-home
+        device: root-btrfs
         path: /home
-        device: cryptroot
-        fstype: btrfs
         options: "subvol=@home,compress=zstd,noatime,ssd,space_cache=v2"
 
       - type: mount
+        id: mount-var
+        device: root-btrfs
         path: /var
-        device: cryptroot
-        fstype: btrfs
         options: "subvol=@var,compress=zstd,noatime,ssd,space_cache=v2"
 
       - type: mount
+        id: mount-snapshots
+        device: root-btrfs
         path: /.snapshots
-        device: cryptroot
-        fstype: btrfs
         options: "subvol=@snapshots,compress=zstd,noatime,ssd,space_cache=v2"
 
   late-commands:
