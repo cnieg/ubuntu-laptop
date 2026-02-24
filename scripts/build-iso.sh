@@ -60,7 +60,7 @@ echo "[build-iso] Patch boot parameters..."
 echo "[build-iso] Patch boot parameters..."
 for f in   "$WORKDIR/iso/boot/grub/grub.cfg"   "$WORKDIR/iso/boot/grub/loopback.cfg"   "$WORKDIR/iso/EFI/boot/grub.cfg"   "$WORKDIR/iso/isolinux/txt.cfg"
 do
-  [[ -f "$f" ]] && sed -i 's/---/ autoinstall ds=nocloud;s=\/cdrom\/NOLOUD\/ ---/g' "$f"
+  [[ -f "$f" ]] && sed -i 's/---/ autoinstall ds=nocloud\;s=\/cdrom\/NOLOUD\/ ---/g' "$f"
 done
 
 echo "[build-iso] Repack ISO (boot replay, robust)..."
