@@ -82,6 +82,12 @@ autoinstall:
         keyfile: /run/crypt/root.key
         preserve: true
 
+      - type: format
+        id: root-btrfs
+        volume: cryptroot
+        fstype: btrfs
+        preserve: true
+
       # mounts des subvolumes
       - type: mount
         id: mount-root
