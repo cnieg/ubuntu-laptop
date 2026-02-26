@@ -50,13 +50,13 @@ autoinstall:
         id: disk0
         path: /dev/nvme0n1
         preserve: true
+        grub_device: true
 
       - type: partition
         id: efi-part
         device: disk0
         number: 1
         preserve: true
-        grub_device: true
 
       - type: format
         id: efi-fs
@@ -68,6 +68,31 @@ autoinstall:
         id: mount-efi
         device: efi-fs
         path: /boot/efi
+
+      # --- SWAP (déjà créée en phase 1) ---
+      - type: partition
+        id: swap-part
+        device: disk0
+        number: 2
+        preserve: true
+
+      - type: dm_crypt
+        id: cryptswap
+        dm_name: cryptswap
+        volume: swap-part
+        keyfile: /run/crypt/swap.key
+        preserve: true
+
+      - type: format
+        id: swap-fs
+        volume: cryptswap
+        fstype: swap
+        preserve: true
+
+      - type: mount
+        id: mount-swap
+        device: swap-fs
+        path: none
 
       - type: partition
         id: root-part
