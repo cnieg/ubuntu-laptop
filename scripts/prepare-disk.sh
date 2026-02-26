@@ -39,6 +39,7 @@ dd if=/dev/zero of="$DISK" bs=1M count=16 conv=fsync 2>/dev/null || true
 parted -s "$DISK" mklabel gpt
 parted -s "$DISK" mkpart ESP fat32 1MiB "$((EFI_SIZE_MIB+1))"MiB
 parted -s "$DISK" set 1 esp on
+parted -s "$DISK" set 1 boot on
 
 SWAP_END_MIB="$((EFI_SIZE_MIB + SWAP_SIZE_GIB*1024))"
 parted -s "$DISK" mkpart primary "$((EFI_SIZE_MIB+1))"MiB "${SWAP_END_MIB}"MiB
