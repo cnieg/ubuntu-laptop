@@ -23,10 +23,10 @@ autoinstall:
     - network-manager
     - network-manager-openconnect
     - iwd
-    - btop 
-    - curl 
-    - git 
-    - wget 
+    - btop
+    - curl
+    - git
+    - wget
     - net-tools
     - ansible
 
@@ -35,41 +35,44 @@ autoinstall:
     - umask 077
     - openssl rand -out /run/crypt/root.key 64
     - openssl rand -out /run/crypt/swap.key 64
+
     - bash /cdrom/NOLOUD/prepare-proxy.sh
-    # Dépendances pour l'environnement installateur (early-commands)
+
     - |
       set -e
       export DEBIAN_FRONTEND=noninteractive
       apt-get update
-      apt-get install -y --no-install-recommends btrfs-progs cryptsetup parted util-linux dosfstools    
+      apt-get install -y --no-install-recommends btrfs-progs cryptsetup parted util-linux dosfstools
+
+    # Phase 1: crée p2/p3 + luks + btrfs subvols (NE crée PAS l'ESP)
     - bash /cdrom/NOLOUD/prepare-disk.sh
 
   storage:
     config:
+      # Le disque est géré par Subiquity pour l'ESP (p1) + grub
       - type: disk
         id: disk0
         path: /dev/nvme0n1
-        preserve: true
         grub_device: true
 
+      # ESP créée par Subiquity => pas de number, pas de preserve
       - type: partition
         id: efi-part
         device: disk0
-        number: 1
-        preserve: true
+        size: 512M
+        flag: boot
 
       - type: format
         id: efi-fs
         volume: efi-part
         fstype: fat32
-        preserve: true
 
       - type: mount
         id: mount-efi
         device: efi-fs
         path: /boot/efi
 
-      # --- SWAP (déjà créée en phase 1) ---
+      # SWAP créée par phase 1 => number + preserve
       - type: partition
         id: swap-part
         device: disk0
@@ -94,6 +97,7 @@ autoinstall:
         device: swap-fs
         path: none
 
+      # ROOT créée par phase 1 => number + preserve
       - type: partition
         id: root-part
         device: disk0
@@ -113,7 +117,6 @@ autoinstall:
         fstype: btrfs
         preserve: true
 
-      # mounts des subvolumes
       - type: mount
         id: mount-root
         device: root-btrfs
@@ -139,35 +142,42 @@ autoinstall:
         options: "subvol=@snapshots,compress=zstd,noatime,ssd,space_cache=v2"
 
   late-commands:
-    # Proxy nomade (172.30/172.31): s'active/désactive automatiquement
+    # Proxy nomade
     - curtin in-target -- bash /cdrom/NOLOUD/install-proxy-autoswitch.sh
 
     # Clé persistante pour cryptswap + initramfs (hibernation)
-    - curtin in-target -- bash -lc 'install -d -m 0700 /etc/cryptsetup-keys.d && install -m 0400 /run/crypt/swap.key /etc/cryptsetup-keys.d/cryptswap.key && SWAP_UUID="$(blkid -s UUID -o value /dev/nvme0n1p2)" && grep -q "^cryptswap " /etc/crypttab || echo "cryptswap UUID=${SWAP_UUID} /etc/cryptsetup-keys.d/cryptswap.key luks" >> /etc/crypttab && install -d -m 0755 /etc/cryptsetup-initramfs && echo "KEYFILE_PATTERN=/etc/cryptsetup-keys.d/*.key" > /etc/cryptsetup-initramfs/conf-hook && update-initramfs -u'
+    - curtin in-target -- bash -lc '
+        set -e
+        install -d -m 0700 /etc/cryptsetup-keys.d
+        install -m 0400 /run/crypt/swap.key /etc/cryptsetup-keys.d/cryptswap.key
+        SWAP_UUID="$(blkid -s UUID -o value /dev/nvme0n1p2)"
+        grep -q "^cryptswap " /etc/crypttab || echo "cryptswap UUID=${SWAP_UUID} /etc/cryptsetup-keys.d/cryptswap.key luks" >> /etc/crypttab
+        install -d -m 0755 /etc/cryptsetup-initramfs
+        echo "KEYFILE_PATTERN=/etc/cryptsetup-keys.d/*.key" > /etc/cryptsetup-initramfs/conf-hook
+        update-initramfs -u
+      '
 
     - curtin in-target -- bash -lc 'echo "RESUME=/dev/mapper/cryptswap" > /etc/initramfs-tools/conf.d/resume && update-initramfs -u'
 
     # Recovery key root
     - bash -lc 'install -d -m 0700 /target/root/recovery && umask 077 && openssl rand -out /target/root/recovery/luks-root-recovery.key 32 && cryptsetup luksAddKey /dev/nvme0n1p3 /target/root/recovery/luks-root-recovery.key --key-file /run/crypt/root.key'
 
-    # TPM auto-unlock root
+    # TPM auto-unlock root (best effort)
     - curtin in-target -- bash -lc 'apt-get update && apt-get install -y tpm2-tools && systemd-cryptenroll --tpm2-device=auto /dev/nvme0n1p3 || true'
 
     # NetworkManager + iwd backend
     - rm -f /target/etc/netplan/*.yaml
     - "echo 'network:\\n  version: 2\\n  renderer: NetworkManager' > /target/etc/netplan/01-nm.yaml"
     - chmod 600 /target/etc/netplan/01-nm.yaml
-    
-    # Activer iwd et le configurer comme backend WiFi de NetworkManager
+
     - curtin in-target -- systemctl enable iwd
     - curtin in-target -- systemctl enable NetworkManager
-    
-    # Configurer NetworkManager pour utiliser iwd au lieu de wpa_supplicant
+
     - mkdir -p /target/etc/NetworkManager/conf.d
     - "echo '[device]\\nwifi.backend=iwd' > /target/etc/NetworkManager/conf.d/wifi-backend.conf"
-    
-    # Désactiver services réseau conflictuels
+
     - curtin in-target -- systemctl disable systemd-networkd
     - curtin in-target -- systemctl mask systemd-networkd
     - curtin in-target -- systemctl disable wpa_supplicant
     - curtin in-target -- systemctl mask wpa_supplicant
+    
