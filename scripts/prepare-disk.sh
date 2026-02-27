@@ -37,7 +37,7 @@ wipefs -af "$DISK" || true
 dd if=/dev/zero of="$DISK" bs=1M count=16 conv=fsync 2>/dev/null || true
 
 parted -s "$DISK" mklabel gpt
-parted -s "$DISK" mkpart ESP fat32 1MiB "$((EFI_SIZE_MIB+1))"MiB
+parted -s "$DISK" unit MiB mkpart ESP fat32 1 513 
 parted -s "$DISK" set 1 esp on
 parted -s "$DISK" set 1 boot on
 
