@@ -15,6 +15,10 @@ autoinstall:
     install-server: true
     allow-pw: true
 
+  # IMPORTANT: proxy doit être prêt avant packages.
+  early-commands:
+    - bash /cdrom/NOLOUD/prepare-proxy.sh || true
+
   packages:
     - btrfs-progs
     - cryptsetup
@@ -30,32 +34,15 @@ autoinstall:
     - net-tools
     - ansible
 
-  early-commands:
-    - mkdir -p /run/crypt
-    - umask 077
-    - openssl rand -out /run/crypt/root.key 64
-    - openssl rand -out /run/crypt/swap.key 64
-
-    - bash /cdrom/NOLOUD/prepare-proxy.sh
-
-    - |
-      set -e
-      export DEBIAN_FRONTEND=noninteractive
-      apt-get update
-      apt-get install -y --no-install-recommends btrfs-progs cryptsetup parted util-linux dosfstools
-
-    # Phase 1: crée p2/p3 + luks + btrfs subvols (NE crée PAS l'ESP)
-    - bash /cdrom/NOLOUD/prepare-disk.sh
-
   storage:
     config:
-      # Le disque est géré par Subiquity pour l'ESP (p1) + grub
+      # ---- DISK ----
       - type: disk
         id: disk0
         path: /dev/nvme0n1
         grub_device: true
 
-      # ESP créée par Subiquity => pas de number, pas de preserve
+      # ---- EFI ----
       - type: partition
         id: efi-part
         device: disk0
@@ -72,51 +59,48 @@ autoinstall:
         device: efi-fs
         path: /boot/efi
 
-      # SWAP créée par phase 1 => number + preserve
+      # ---- SWAP (32G) chiffrée ----
       - type: partition
         id: swap-part
         device: disk0
-        number: 2
-        preserve: true
+        size: 32G
 
       - type: dm_crypt
         id: cryptswap
         dm_name: cryptswap
         volume: swap-part
-        keyfile: /run/crypt/swap.key
-        preserve: true
+        # clé aléatoire au boot (OK pour swap), on gère RESUME côté initramfs
+        key: random
 
       - type: format
         id: swap-fs
         volume: cryptswap
         fstype: swap
-        preserve: true
 
       - type: mount
         id: mount-swap
         device: swap-fs
         path: none
 
-      # ROOT créée par phase 1 => number + preserve
+      # ---- ROOT chiffrée ----
       - type: partition
         id: root-part
         device: disk0
-        number: 3
-        preserve: true
+        size: -1
 
       - type: dm_crypt
         id: cryptroot
         dm_name: cryptroot
         volume: root-part
-        keyfile: /run/crypt/root.key
-        preserve: true
+        # on reste simple et robuste: passphrase demandée au boot, TPM enroll ensuite
+        key: random
 
       - type: format
         id: root-btrfs
         volume: cryptroot
         fstype: btrfs
-        preserve: true
 
+      # Montage final sur subvol=@ (créé en late-commands)
       - type: mount
         id: mount-root
         device: root-btrfs
@@ -142,28 +126,45 @@ autoinstall:
         options: "subvol=@snapshots,compress=zstd,noatime,ssd,space_cache=v2"
 
   late-commands:
-    # Proxy nomade
-    - curtin in-target -- bash /cdrom/NOLOUD/install-proxy-autoswitch.sh
+    # Proxy nomade (172.30/172.31): activation/désactivation automatique sur le système installé
+    - curtin in-target -- bash /cdrom/NOLOUD/install-proxy-autoswitch.sh || true
 
-    # Clé persistante pour cryptswap + initramfs (hibernation)
+    # Créer les subvolumes btrfs AVANT que le système ne redémarre
+    # On monte le "top-level" (subvolid=5), on crée @, @home, @var, @snapshots.
     - curtin in-target -- bash -lc '
         set -e
-        install -d -m 0700 /etc/cryptsetup-keys.d
-        install -m 0400 /run/crypt/swap.key /etc/cryptsetup-keys.d/cryptswap.key
-        SWAP_UUID="$(blkid -s UUID -o value /dev/nvme0n1p2)"
-        grep -q "^cryptswap " /etc/crypttab || echo "cryptswap UUID=${SWAP_UUID} /etc/cryptsetup-keys.d/cryptswap.key luks" >> /etc/crypttab
-        install -d -m 0755 /etc/cryptsetup-initramfs
-        echo "KEYFILE_PATTERN=/etc/cryptsetup-keys.d/*.key" > /etc/cryptsetup-initramfs/conf-hook
+        mkdir -p /mnt/btrfs-top
+        mount -o subvolid=5 /dev/mapper/cryptroot /mnt/btrfs-top
+        btrfs subvolume create /mnt/btrfs-top/@
+        btrfs subvolume create /mnt/btrfs-top/@home
+        btrfs subvolume create /mnt/btrfs-top/@var
+        btrfs subvolume create /mnt/btrfs-top/@snapshots
+        umount /mnt/btrfs-top
+      '
+
+    # Hibernation: pointer le resume sur la swap chiffrée
+    - curtin in-target -- bash -lc '
+        set -e
+        echo "RESUME=/dev/mapper/cryptswap" > /etc/initramfs-tools/conf.d/resume
         update-initramfs -u
       '
 
-    - curtin in-target -- bash -lc 'echo "RESUME=/dev/mapper/cryptswap" > /etc/initramfs-tools/conf.d/resume && update-initramfs -u'
-
-    # Recovery key root
-    - bash -lc 'install -d -m 0700 /target/root/recovery && umask 077 && openssl rand -out /target/root/recovery/luks-root-recovery.key 32 && cryptsetup luksAddKey /dev/nvme0n1p3 /target/root/recovery/luks-root-recovery.key --key-file /run/crypt/root.key'
+    # Recovery key root (ajoute une clé fichier en plus)
+    - curtin in-target -- bash -lc '
+        set -e
+        install -d -m 0700 /root/recovery
+        umask 077
+        openssl rand -out /root/recovery/luks-root-recovery.key 32
+        cryptsetup luksAddKey /dev/nvme0n1p3 /root/recovery/luks-root-recovery.key || true
+      '
 
     # TPM auto-unlock root (best effort)
-    - curtin in-target -- bash -lc 'apt-get update && apt-get install -y tpm2-tools && systemd-cryptenroll --tpm2-device=auto /dev/nvme0n1p3 || true'
+    - curtin in-target -- bash -lc '
+        set -e
+        apt-get update || true
+        apt-get install -y tpm2-tools || true
+        systemd-cryptenroll --tpm2-device=auto /dev/nvme0n1p3 || true
+      '
 
     # NetworkManager + iwd backend
     - rm -f /target/etc/netplan/*.yaml
@@ -176,8 +177,8 @@ autoinstall:
     - mkdir -p /target/etc/NetworkManager/conf.d
     - "echo '[device]\\nwifi.backend=iwd' > /target/etc/NetworkManager/conf.d/wifi-backend.conf"
 
-    - curtin in-target -- systemctl disable systemd-networkd
-    - curtin in-target -- systemctl mask systemd-networkd
-    - curtin in-target -- systemctl disable wpa_supplicant
-    - curtin in-target -- systemctl mask wpa_supplicant
+    - curtin in-target -- systemctl disable systemd-networkd || true
+    - curtin in-target -- systemctl mask systemd-networkd || true
+    - curtin in-target -- systemctl disable wpa_supplicant || true
+    - curtin in-target -- systemctl mask wpa_supplicant || true
     
