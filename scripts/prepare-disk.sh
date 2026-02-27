@@ -105,7 +105,16 @@ log "Create partitions: p2 swap [${SWAP_START_MIB}MiB..${SWAP_END_MIB}MiB], p3 r
 parted -s "$DISK" unit MiB mkpart primary "${SWAP_START_MIB}" "${SWAP_END_MIB}"
 parted -s "$DISK" unit MiB mkpart primary "${SWAP_END_MIB}" 100%
 
+
+log "Create partitions..."
+
+parted -s "$DISK" mkpart primary "${SWAP_START_MIB}MiB" "${SWAP_END_MIB}MiB"
+parted -s "$DISK" mkpart primary "${SWAP_END_MIB}MiB" 100%
+
 settle
+
+log "Partition table after creation:"
+parted -s "$DISK" print
 
 # Wait for kernel to expose /dev/nvme0n1p2 and p3
 wait_for_part "$P2" 30 || die "Partition not found after create: $P2"
