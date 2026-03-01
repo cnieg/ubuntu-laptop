@@ -232,7 +232,7 @@ jobs:
         ls -lh ventoy-package.tar.gz
     
     - name: Upload Ventoy package (contient ISO + config)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ventoy-package-complete
         path: ventoy-package.tar.gz
