@@ -48,13 +48,13 @@ autoinstall:
         path: /dev/nvme0n1
         ptable: gpt
         wipe: superblock-recursive
-        grub_device: true
   
       - type: partition
         id: efi-part
         device: disk0
         size: 512M
-        flag: boot
+        flag: esp
+        grub_device: true
   
       - type: format
         id: efi-fs
