@@ -64,7 +64,7 @@ jobs:
     # Cache basé sur le SHA256 officiel (pas sur le script)
     - name: Cache Ubuntu base ISO
       id: cache-iso
-      uses: actions/cache@v3
+      uses: actions/cache@v5
       with:
         path: ~/ubuntu-25.10-live-server-amd64.iso
         key: ubuntu-25.10-iso-${{ steps.get-sha.outputs.official_sha }}
