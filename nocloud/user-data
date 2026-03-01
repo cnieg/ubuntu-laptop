@@ -132,8 +132,6 @@ autoinstall:
 
     # TPM enroll root (best effort)
     - curtin in-target -- bash -lc '
-        apt-get update || true
-        apt-get install -y tpm2-tools || true
         systemd-cryptenroll --tpm2-device=auto /dev/nvme0n1p3 || true
       '
 
