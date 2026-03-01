@@ -42,94 +42,44 @@ autoinstall:
 
   storage:
     config:
-      # --- DISK: wipe + GPT ---
+  
       - type: disk
         id: disk0
         path: /dev/nvme0n1
         ptable: gpt
         wipe: superblock-recursive
         grub_device: true
-
-      # --- EFI ---
+  
       - type: partition
         id: efi-part
         device: disk0
         size: 512M
         flag: boot
-
+  
       - type: format
         id: efi-fs
         volume: efi-part
         fstype: fat32
-
+  
       - type: mount
         id: mount-efi
         device: efi-fs
         path: /boot/efi
-
-      # --- SWAP (32G) -> LUKS -> swap ---
-      - type: partition
-        id: swap-part
-        device: disk0
-        size: 32G
-
-      - type: dm_crypt
-        id: cryptswap
-        dm_name: cryptswap
-        volume: swap-part
-        keyfile: /run/crypt/swap.key
-
-      - type: format
-        id: swap-fs
-        volume: cryptswap
-        fstype: swap
-
-      - type: mount
-        id: mount-swap
-        device: swap-fs
-        path: none
-
-      # --- ROOT (reste) -> LUKS -> btrfs ---
+  
       - type: partition
         id: root-part
         device: disk0
         size: -1
-
-      - type: dm_crypt
-        id: cryptroot
-        dm_name: cryptroot
-        volume: root-part
-        keyfile: /run/crypt/root.key
-
+  
       - type: format
-        id: root-btrfs
-        volume: cryptroot
-        fstype: btrfs
-
-      # Mounts subvolumes (créés en late-commands)
+        id: root-fs
+        volume: root-part
+        fstype: ext4
+  
       - type: mount
         id: mount-root
-        device: root-btrfs
+        device: root-fs
         path: /
-        options: "subvol=@,compress=zstd,noatime,ssd,space_cache=v2"
-
-      - type: mount
-        id: mount-home
-        device: root-btrfs
-        path: /home
-        options: "subvol=@home,compress=zstd,noatime,ssd,space_cache=v2"
-
-      - type: mount
-        id: mount-var
-        device: root-btrfs
-        path: /var
-        options: "subvol=@var,compress=zstd,noatime,ssd,space_cache=v2"
-
-      - type: mount
-        id: mount-snapshots
-        device: root-btrfs
-        path: /.snapshots
-        options: "subvol=@snapshots,compress=zstd,noatime,ssd,space_cache=v2"
 
   late-commands:
     # Proxy autoswitch dans l'OS installé
