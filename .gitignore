@@ -1,16 +1,6 @@
 # Build artifacts
-iso-build/
+build/
 *.iso
-*.iso.sha256
 
-# Ubuntu source ISO
-ubuntu-*-live-server-*.iso
-
-# Temporary files
-*~
-*.swp
-*.bak
-
-# macOS
-.DS_Store
-
+# Local secrets / overrides
+*.local
