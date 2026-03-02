@@ -28,7 +28,6 @@ autoinstall:
   packages:
     - btrfs-progs
     - cryptsetup
-    - tpm2-tools
     - rsync
     - network-manager
     - network-manager-openconnect
@@ -80,6 +79,10 @@ autoinstall:
         id: mount-root
         device: root-fs
         path: /
+
+  power_state:
+    mode: reboot
+    timeout: 5
 
   late-commands:
     # Proxy autoswitch dans l'OS installé
