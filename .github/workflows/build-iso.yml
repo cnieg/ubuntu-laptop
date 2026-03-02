@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-iso:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 360  # 6h max
     
     steps:
@@ -67,10 +67,9 @@ jobs:
       uses: actions/cache@v5
       with:
         path: ~/resolute-live-server-amd64.iso
-        key: ubuntu-26.04-iso-${{ steps.get-sha.outputs.official_sha }}
+        key: ubuntu-resolute-iso-${{ steps.get-sha.outputs.official_sha }}
         restore-keys: |
-          ubuntu-26.04-iso-
-
+          ubuntu-resolute-iso-
     # Vérifier l'intégrité de l'ISO en cache (si elle existe)
     - name: Verify cached ISO integrity
       if: steps.cache-iso.outputs.cache-hit == 'true'
