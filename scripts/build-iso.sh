@@ -52,7 +52,7 @@ chmod +x "$WORKDIR/iso/NOLOUD/install-proxy-autoswitch.sh"
 touch "$WORKDIR/iso/NOLOUD/ARMED"
 
 # Paramètres à injecter (Ventoy/GRUB2-friendly)
-KPARAMS='autoinstall ds=nocloud\;s=/cdrom/NOLOUD/'
+KPARAMS='autoinstall ds=nocloud\\;s=/cdrom/NOLOUD/'
 
 echo "[build-iso] Patch boot parameters (safe append)..."
 patch_one() {
