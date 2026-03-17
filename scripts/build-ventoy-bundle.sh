@@ -13,6 +13,3 @@ cp nocloud/meta-data build/ventoy/ubuntu-autoinstall/
 )
 
 cp live-injection-src/live_injection.tar.gz build/ventoy/
-
-cd build
-zip -r ventoy-bundle.zip ventoy
