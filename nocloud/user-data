@@ -115,4 +115,4 @@ autoinstall:
     #- curtin in-target -- bash /root/install-scripts/configure-recovery-and-tpm.sh || true
 
     # IMPORTANT : celui-ci en dernier, hors chroot
-    #- bash /target/root/install-scripts/configure-btrfs.sh
+    - bash /target/root/install-scripts/configure-btrfs.sh
