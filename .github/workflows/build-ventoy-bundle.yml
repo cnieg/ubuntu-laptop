@@ -5,10 +5,18 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
       - run: chmod +x scripts/build-ventoy-bundle.sh
       - run: ./scripts/build-ventoy-bundle.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ventoy-bundle
+          path: build/ventoy-bundle.zip
