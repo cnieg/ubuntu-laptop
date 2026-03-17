@@ -1,0 +1,10 @@
+name: Build Ventoy bundle
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: chmod +x scripts/build-ventoy-bundle.sh
+      - run: ./scripts/build-ventoy-bundle.sh

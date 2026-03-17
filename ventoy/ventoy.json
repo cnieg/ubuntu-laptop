@@ -1,0 +1,15 @@
+{
+  "auto_install": [
+    {
+      "image": "/resolute-live-server-amd64.iso",
+      "template": "/ventoy/ubuntu-autoinstall/user-data",
+      "autosel": 1
+    }
+  ],
+  "injection": [
+    {
+      "image": "/resolute-live-server-amd64.iso",
+      "archive": "/ventoy/live_injection.tar.gz"
+    }
+  ]
+}

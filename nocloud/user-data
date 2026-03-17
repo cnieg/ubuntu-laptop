@@ -2,7 +2,14 @@
 autoinstall:
   version: 1
 
+  early-commands:
+    - mkdir -p /run/install-scripts
+    - cp -a /ventoy/scripts/. /run/install-scripts/
+    - chmod +x /run/install-scripts/*.sh
+    - bash /run/install-scripts/prepare-proxy.sh || true
+
   locale: fr_FR.UTF-8
+
   keyboard:
     layout: fr
 
@@ -15,141 +22,97 @@ autoinstall:
     install-server: true
     allow-pw: true
 
-  early-commands:
-    # Proxy (si 172.30/172.31)
-    - bash /cdrom/NOLOUD/prepare-proxy.sh || true
-
-    # Keyfiles LUKS temporaires (disponibles pendant l'install)
-    - mkdir -p /run/crypt
-    - umask 077
-    - openssl rand -out /run/crypt/root.key 64
-    - openssl rand -out /run/crypt/swap.key 64
+  updates: security
+  shutdown: reboot
 
   packages:
     - btrfs-progs
     - cryptsetup
-    - rsync
-    - network-manager
-    - network-manager-openconnect
-    - iwd
-    - btop
-    - curl
-    - git
-    - wget
-    - net-tools
-    - ansible
 
   storage:
     config:
-  
       - type: disk
         id: disk0
         path: /dev/nvme0n1
         ptable: gpt
         wipe: superblock-recursive
-  
+
       - type: partition
         id: efi-part
         device: disk0
-        size: 512M
+        size: 550M
         flag: esp
         grub_device: true
-  
+
       - type: format
         id: efi-fs
         volume: efi-part
         fstype: fat32
-  
+
       - type: mount
         id: mount-efi
         device: efi-fs
         path: /boot/efi
-  
+
+      - type: partition
+        id: boot-part
+        device: disk0
+        size: 1G
+
+      - type: format
+        id: boot-fs
+        volume: boot-part
+        fstype: ext4
+
+      - type: mount
+        id: mount-boot
+        device: boot-fs
+        path: /boot
+
+      - type: partition
+        id: swap-part
+        device: disk0
+        size: 32G
+
+      - type: format
+        id: swap-format
+        volume: swap-part
+        fstype: swap
+
       - type: partition
         id: root-part
         device: disk0
         size: -1
-  
-      - type: format
-        id: root-fs
+
+      - type: dm_crypt
+        id: cryptroot
+        dm_name: cryptroot
         volume: root-part
-        fstype: ext4
-  
+        key: password
+
+      - type: format
+        id: root-btrfs
+        volume: cryptroot
+        fstype: btrfs
+
       - type: mount
         id: mount-root
-        device: root-fs
-        path: /
-
-  power_state:
-    mode: reboot
-    timeout: 5
+        device: root-btrfs
+        path: /    
 
   late-commands:
-    # Proxy autoswitch dans l'OS installé
-    - curtin in-target -- bash /cdrom/NOLOUD/install-proxy-autoswitch.sh || true
+    - mkdir -p /target/root/install-scripts
+    - cp -a /run/install-scripts/. /target/root/install-scripts/
+    - chmod +x /target/root/install-scripts/*.sh
 
-    # Rendre la clé swap persistante (hibernation) + crypttab/initramfs
-    - curtin in-target -- bash -lc '
-        set -e
-        install -d -m 0700 /etc/cryptsetup-keys.d
-        install -m 0400 /run/crypt/swap.key /etc/cryptsetup-keys.d/cryptswap.key
-        SWAP_UUID="$(blkid -s UUID -o value /dev/nvme0n1p2)"
-        grep -q "^cryptswap " /etc/crypttab || echo "cryptswap UUID=${SWAP_UUID} /etc/cryptsetup-keys.d/cryptswap.key luks,discard" >> /etc/crypttab
-        install -d -m 0755 /etc/cryptsetup-initramfs
-        echo "KEYFILE_PATTERN=/etc/cryptsetup-keys.d/*.key" > /etc/cryptsetup-initramfs/conf-hook
-        echo "RESUME=/dev/mapper/cryptswap" > /etc/initramfs-tools/conf.d/resume
-        update-initramfs -u
-      '
+    - curtin in-target -- bash /root/install-scripts/install-proxy-autoswitch.sh || true
 
-    # Rendre la clé root persistante (pour déverrouillage sans /run/crypt après reboot)
-    - curtin in-target -- bash -lc '
-        set -e
-        install -d -m 0700 /etc/cryptsetup-keys.d
-        install -m 0400 /run/crypt/root.key /etc/cryptsetup-keys.d/cryptroot.key
-        ROOT_UUID="$(blkid -s UUID -o value /dev/nvme0n1p3)"
-        grep -q "^cryptroot " /etc/crypttab || echo "cryptroot UUID=${ROOT_UUID} /etc/cryptsetup-keys.d/cryptroot.key luks,discard" >> /etc/crypttab
-        install -d -m 0755 /etc/cryptsetup-initramfs
-        echo "KEYFILE_PATTERN=/etc/cryptsetup-keys.d/*.key" > /etc/cryptsetup-initramfs/conf-hook
-        update-initramfs -u
-      '
+    - curtin in-target -- apt-get update 
+    - curtin in-target -- apt-get install -y network-manager network-manager-openconnect iwd curl git wget btop ansible snapper tpm2-tools
 
-    # Créer les subvolumes btrfs (top-level) + réinstaller fstab cohérent
-    - curtin in-target -- bash -lc '
-        set -e
-        mkdir -p /mnt/btrfs-top
-        mount -o subvolid=5 /dev/mapper/cryptroot /mnt/btrfs-top
-        for sv in @ @home @var @snapshots; do
-          btrfs subvolume show "/mnt/btrfs-top/$sv" >/dev/null 2>&1 || btrfs subvolume create "/mnt/btrfs-top/$sv"
-        done
-        umount /mnt/btrfs-top
-      '
+    - curtin in-target -- bash /root/install-scripts/configure-networkmanager.sh
+    - curtin in-target -- bash /root/install-scripts/configure-system-optimizations.sh
+    #- curtin in-target -- bash /root/install-scripts/configure-recovery-and-tpm.sh || true
 
-    # Recovery key root (ajoute une clé de secours fichier)
-    - curtin in-target -- bash -lc '
-        set -e
-        install -d -m 0700 /root/recovery
-        umask 077
-        openssl rand -out /root/recovery/luks-root-recovery.key 32
-        cryptsetup luksAddKey /dev/nvme0n1p3 /root/recovery/luks-root-recovery.key --key-file /etc/cryptsetup-keys.d/cryptroot.key || true
-      '
-
-    # TPM enroll root (best effort)
-    - curtin in-target -- bash -lc '
-        systemd-cryptenroll --tpm2-device=auto /dev/nvme0n1p3 || true
-      '
-
-    # NetworkManager + iwd
-    - rm -f /target/etc/netplan/*.yaml
-    - "echo 'network:\\n  version: 2\\n  renderer: NetworkManager' > /target/etc/netplan/01-nm.yaml"
-    - chmod 600 /target/etc/netplan/01-nm.yaml
-
-    - curtin in-target -- systemctl enable iwd
-    - curtin in-target -- systemctl enable NetworkManager
-
-    - mkdir -p /target/etc/NetworkManager/conf.d
-    - "echo '[device]\\nwifi.backend=iwd' > /target/etc/NetworkManager/conf.d/wifi-backend.conf"
-
-    - curtin in-target -- systemctl disable systemd-networkd || true
-    - curtin in-target -- systemctl mask systemd-networkd || true
-    - curtin in-target -- systemctl disable wpa_supplicant || true
-    - curtin in-target -- systemctl mask wpa_supplicant || true
+    # IMPORTANT : celui-ci en dernier, hors chroot
+    #- bash /target/root/install-scripts/configure-btrfs.sh

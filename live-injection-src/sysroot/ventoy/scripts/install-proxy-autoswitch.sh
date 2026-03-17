@@ -2,7 +2,7 @@
 set -euo pipefail
 
 install -d -m 0755 /usr/local/sbin
-cat > /usr/local/sbin/proxy-autoswitch <<'EOF'
+cat > /usr/local/sbin/proxy-autoswitch <<'SCRIPT_EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -19,30 +19,30 @@ has_matching_ip() {
 
 apply_proxy() {
   mkdir -p /etc/apt/apt.conf.d
-  cat > /etc/apt/apt.conf.d/95proxy <<EOF
+  cat > /etc/apt/apt.conf.d/95proxy <<APT_EOF
 Acquire::http::Proxy "$PROXY_URL";
 Acquire::https::Proxy "$PROXY_URL";
-EOF
+APT_EOF
 
   mkdir -p /etc/environment.d
-  cat > /etc/environment.d/95proxy.conf <<EOF
+  cat > /etc/environment.d/95proxy.conf <<ENV_EOF
 http_proxy=$PROXY_URL
 https_proxy=$PROXY_URL
 HTTP_PROXY=$PROXY_URL
 HTTPS_PROXY=$PROXY_URL
 no_proxy=$NO_PROXY_LIST
 NO_PROXY=$NO_PROXY_LIST
-EOF
+ENV_EOF
 
   mkdir -p /etc/profile.d
-  cat > /etc/profile.d/proxy.sh <<EOF
+  cat > /etc/profile.d/proxy.sh <<PROFILE_EOF
 export http_proxy=$PROXY_URL
 export https_proxy=$PROXY_URL
 export HTTP_PROXY=$PROXY_URL
 export HTTPS_PROXY=$PROXY_URL
 export no_proxy=$NO_PROXY_LIST
 export NO_PROXY=$NO_PROXY_LIST
-EOF
+PROFILE_EOF
   chmod +x /etc/profile.d/proxy.sh
 
   if command -v snap >/dev/null 2>&1; then
@@ -77,7 +77,7 @@ fi
 
 echo "$current" > "$state_file"
 
-EOF
+SCRIPT_EOF
 chmod 0755 /usr/local/sbin/proxy-autoswitch
 
 cat > /etc/proxy-autoswitch.conf <<'EOF'
