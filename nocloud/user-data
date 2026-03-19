@@ -112,7 +112,7 @@ autoinstall:
 
     - curtin in-target -- bash /root/install-scripts/configure-networkmanager.sh
     - curtin in-target -- bash /root/install-scripts/configure-system-optimizations.sh
-    #- curtin in-target -- bash /root/install-scripts/configure-recovery-and-tpm.sh || true
+    - curtin in-target -- bash /root/install-scripts/configure-recovery-and-tpm.sh || true
 
     # IMPORTANT : celui-ci en dernier, hors chroot
     - bash /target/root/install-scripts/configure-btrfs.sh
