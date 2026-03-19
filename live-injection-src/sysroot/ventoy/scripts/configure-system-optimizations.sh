@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Réduire le timeout GRUB
 if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
   sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=1/' /etc/default/grub
 else
@@ -16,15 +15,17 @@ fi
 
 update-grub || true
 
-# Désactiver cloud-init après installation
 touch /etc/cloud/cloud-init.disabled
 
-# Garder les mises à jour de sécurité automatiques
 if dpkg -s unattended-upgrades >/dev/null 2>&1; then
   systemctl enable unattended-upgrades.service || true
 fi
 
-# Limiter les refresh snap à midi si snap est présent
+if dpkg -s locales >/dev/null 2>&1; then
+  locale-gen fr_FR.UTF-8 || true
+  update-locale LANG=fr_FR.UTF-8 || true
+fi
+
 if command -v snap >/dev/null 2>&1; then
-  snap set system refresh.timer=12:00-14:00 || true
+  snap set system refresh.timer=02:00-04:00 || true
 fi

@@ -17,14 +17,13 @@ cat > /etc/NetworkManager/conf.d/wifi-backend.conf <<EOF
 wifi.backend=iwd
 EOF
 
-systemctl enable NetworkManager
-systemctl enable iwd
+systemctl enable NetworkManager || true
+systemctl enable iwd || true
 
 systemctl disable systemd-networkd || true
 systemctl mask systemd-networkd || true
 systemctl disable wpa_supplicant || true
 systemctl mask wpa_supplicant || true
 
-# Eviter les boots lents
 systemctl disable NetworkManager-wait-online.service || true
 systemctl mask NetworkManager-wait-online.service || true
