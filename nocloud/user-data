@@ -8,7 +8,7 @@ autoinstall:
     - chmod +x /run/install-scripts/*.sh
     - bash /run/install-scripts/prepare-proxy.sh || true
 
-  locale: fr_FR.UTF-8
+  locale: en_EN.UTF-8
 
   keyboard:
     layout: fr
@@ -108,7 +108,7 @@ autoinstall:
     - curtin in-target -- bash /root/install-scripts/install-proxy-autoswitch.sh || true
 
     - curtin in-target -- apt-get update 
-    - curtin in-target -- apt-get install -y network-manager network-manager-openconnect iwd curl git wget btop ansible snapper tpm2-tools
+    - curtin in-target -- apt-get install -y network-manager network-manager-openconnect iwd curl git wget ansible snapper tpm2-tools
 
     - curtin in-target -- bash /root/install-scripts/configure-networkmanager.sh
     - curtin in-target -- bash /root/install-scripts/configure-system-optimizations.sh
