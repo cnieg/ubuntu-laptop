@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_PART="/dev/nvme0n1p4"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/device-discovery.sh"
+
+ROOT_PART="$(detect_root_partition /)"
+if [ -z "$ROOT_PART" ] || [ ! -b "$ROOT_PART" ]; then
+  fail_device_discovery "detected root partition is invalid: ${ROOT_PART:-<empty>}"
+  exit 1
+fi
 
 install -d -m 0700 /root/recovery
 umask 077

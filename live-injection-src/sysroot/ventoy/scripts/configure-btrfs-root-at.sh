@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/device-discovery.sh"
+
 exec > /target/root/configure-btrfs-root-at.log 2>&1
 
 
@@ -25,15 +28,30 @@ run_critical_step() {
 TARGET="/target"
 TOP="/mnt/btrfs-top"
 
-ROOT_DEV="$(findmnt -no SOURCE /target)"
-ROOT_UUID="$(findmnt -no UUID /target)"
+ROOT_DEV="$(detect_root_source /target)"
+ROOT_UUID="$(detect_root_uuid /target)"
 
 BOOT_DEV="$(findmnt -no SOURCE /target/boot)"
 EFI_DEV="$(findmnt -no SOURCE /target/boot/efi)"
 
 BOOT_UUID="$(blkid -s UUID -o value "$BOOT_DEV")"
 EFI_UUID="$(blkid -s UUID -o value "$EFI_DEV")"
-SWAP_UUID="$(blkid -s UUID -o value /dev/nvme0n1p3)"
+SWAP_UUID="$(detect_swap_uuid)"
+
+if [ -z "$ROOT_DEV" ] || [ ! -e "$ROOT_DEV" ]; then
+  fail_device_discovery "unable to resolve root device for /target"
+  exit 1
+fi
+
+if [ -z "$ROOT_UUID" ]; then
+  fail_device_discovery "unable to resolve root UUID for /target"
+  exit 1
+fi
+
+if [ "$SWAP_UUID" = "none" ] || [ -z "$SWAP_UUID" ]; then
+  fail_device_discovery "unable to resolve swap UUID; refusing to generate fstab"
+  exit 1
+fi
 
 mkdir -p "$TOP"
 mount -o subvolid=5 "$ROOT_DEV" "$TOP"
