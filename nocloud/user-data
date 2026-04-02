@@ -28,6 +28,7 @@ autoinstall:
   packages:
     - btrfs-progs
     - cryptsetup
+    - cryptsetup-initramfs
     - openssh-server
 
   storage:
@@ -109,7 +110,7 @@ autoinstall:
     - curtin in-target -- bash /root/install-scripts/install-proxy-autoswitch.sh || true
 
     - curtin in-target -- apt-get update 
-    - curtin in-target -- apt-get install -y network-manager network-manager-openconnect iwd curl git wget ansible snapper tpm2-tools unattended-upgrades locales exfatprogs || true
+    - curtin in-target -- apt-get install -y network-manager network-manager-openconnect iwd curl git wget ansible snapper tpm2-tools unattended-upgrades locales exfatprogs cryptsetup-initramfs || true
 
     - curtin in-target -- bash /root/install-scripts/configure-networkmanager.sh
     - curtin in-target -- bash /root/install-scripts/configure-system-optimizations.sh

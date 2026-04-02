@@ -3,7 +3,6 @@ set -euo pipefail
 
 exec > /target/root/configure-btrfs-root-at.log 2>&1
 
-
 log() {
   echo "[configure-btrfs-root-at] $*"
 }
@@ -33,7 +32,17 @@ EFI_DEV="$(findmnt -no SOURCE /target/boot/efi)"
 
 BOOT_UUID="$(blkid -s UUID -o value "$BOOT_DEV")"
 EFI_UUID="$(blkid -s UUID -o value "$EFI_DEV")"
-SWAP_UUID="$(blkid -s UUID -o value /dev/nvme0n1p3)"
+
+SWAP_FSTAB_ENTRY="/dev/mapper/cryptswap none swap sw 0 0"
+RESUME_DEV="/dev/mapper/cryptswap"
+if [ ! -e "$TARGET/dev/mapper/cryptswap" ]; then
+  SWAP_PART="$(blkid -t TYPE=swap -o device | head -n1 || true)"
+  if [ -n "$SWAP_PART" ]; then
+    SWAP_UUID="$(blkid -s UUID -o value "$SWAP_PART")"
+    SWAP_FSTAB_ENTRY="UUID=${SWAP_UUID} none swap sw 0 0"
+    RESUME_DEV="UUID=${SWAP_UUID}"
+  fi
+fi
 
 mkdir -p "$TOP"
 mount -o subvolid=5 "$ROOT_DEV" "$TOP"
@@ -73,22 +82,22 @@ if [ -d /target/var/cache ]; then
   rsync -aAXH --numeric-ids /target/var/cache/ "$TOP/@var_cache/" || true
 fi
 
-cat > "$TOP/@/etc/fstab" <<EOF
+cat > "$TOP/@/etc/fstab" <<EOF_FSTAB
 UUID=${BOOT_UUID} /boot ext4 defaults 0 1
 UUID=${EFI_UUID} /boot/efi vfat umask=0077 0 1
-UUID=${SWAP_UUID} none swap sw 0 0
+${SWAP_FSTAB_ENTRY}
 UUID=${ROOT_UUID} / btrfs subvol=@,compress=zstd,noatime,ssd,space_cache=v2 0 0
 UUID=${ROOT_UUID} /home btrfs subvol=@home,compress=zstd,noatime,ssd,space_cache=v2 0 0
 UUID=${ROOT_UUID} /var/log btrfs subvol=@var_log,compress=zstd,noatime,ssd,space_cache=v2 0 0
 UUID=${ROOT_UUID} /var/cache btrfs subvol=@var_cache,compress=zstd,noatime,ssd,space_cache=v2 0 0
 UUID=${ROOT_UUID} /.snapshots btrfs subvol=@snapshots,compress=zstd,noatime,ssd,space_cache=v2 0 0
-EOF
+EOF_FSTAB
 
+GRUB_CMDLINE='GRUB_CMDLINE_LINUX="rootflags=subvol=@ resume='"${RESUME_DEV}"'"'
 if grep -q '^GRUB_CMDLINE_LINUX=' "$TOP/@/etc/default/grub"; then
-  sed -i 's/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="rootflags=subvol=@"/' \
-    "$TOP/@/etc/default/grub"
+  sed -i "s|^GRUB_CMDLINE_LINUX=.*|${GRUB_CMDLINE}|" "$TOP/@/etc/default/grub"
 else
-  echo 'GRUB_CMDLINE_LINUX="rootflags=subvol=@"' >> "$TOP/@/etc/default/grub"
+  echo "$GRUB_CMDLINE" >> "$TOP/@/etc/default/grub"
 fi
 
 mount --bind /dev  "$TOP/@/dev"
