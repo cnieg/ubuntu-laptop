@@ -1,7 +1,26 @@
 #!/usr/bin/env bash
-set -euxo pipefail
+set -euo pipefail
 
 exec > /target/root/configure-btrfs-root-at.log 2>&1
+
+
+log() {
+  echo "[configure-btrfs-root-at] $*"
+}
+
+run_critical_step() {
+  local step_name="$1"
+  shift
+
+  log "START critical step: ${step_name}"
+  if "$@"; then
+    log "DONE critical step: ${step_name}"
+  else
+    local exit_code=$?
+    log "ERROR critical step failed: ${step_name} (exit=${exit_code})"
+    exit "$exit_code"
+  fi
+}
 
 TARGET="/target"
 TOP="/mnt/btrfs-top"
@@ -76,8 +95,8 @@ mount --bind /dev  "$TOP/@/dev"
 mount --bind /proc "$TOP/@/proc"
 mount --bind /sys  "$TOP/@/sys"
 
-chroot "$TOP/@" update-grub || true
-chroot "$TOP/@" update-initramfs -u -k all || true
+run_critical_step "update-grub" chroot "$TOP/@" update-grub
+run_critical_step "update-initramfs -u -k all" chroot "$TOP/@" update-initramfs -u -k all
 
 umount "$TOP/@/dev" || true
 umount "$TOP/@/proc" || true

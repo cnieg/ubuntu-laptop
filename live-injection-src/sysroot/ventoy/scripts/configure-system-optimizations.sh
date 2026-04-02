@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
+log() {
+  echo "[configure-system-optimizations] $*"
+}
+
+run_critical_step() {
+  local step_name="$1"
+  shift
+
+  log "START critical step: ${step_name}"
+  if "$@"; then
+    log "DONE critical step: ${step_name}"
+  else
+    local exit_code=$?
+    log "ERROR critical step failed: ${step_name} (exit=${exit_code})"
+    exit "$exit_code"
+  fi
+}
+
 if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
   sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=1/' /etc/default/grub
 else
@@ -13,7 +32,7 @@ else
   echo 'GRUB_TIMEOUT_STYLE=hidden' >> /etc/default/grub
 fi
 
-update-grub || true
+run_critical_step "update-grub" update-grub
 
 touch /etc/cloud/cloud-init.disabled
 
