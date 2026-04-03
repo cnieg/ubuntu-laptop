@@ -13,6 +13,30 @@ chmod +x scripts/*.sh
 ./scripts/build-iso.sh ubuntu-25.10-live-server-amd64.iso build/ubuntu-25.10-factory.iso
 ```
 
+## Build Ventoy bundle (fail-fast)
+La cible ISO Ventoy est configurable via variables d'environnement:
+
+- `TARGET_ISO_NAME` (défaut: `resolute-live-server-amd64.iso`)
+- `TARGET_ISO_PATH` (défaut: `<repo>/<TARGET_ISO_NAME>`)
+
+Exemple:
+
+```bash
+TARGET_ISO_NAME=resolute-live-server-amd64.iso \
+TARGET_ISO_PATH=$PWD/resolute-live-server-amd64.iso \
+./scripts/build-ventoy-bundle.sh
+```
+
+Le script échoue explicitement si l'ISO cible, les assets requis (`ventoy.json`, `user-data`, `meta-data`) ou une dépendance de build (ex: `dos2unix`) est absente.
+
+## CI: bundle + smoke install
+Le workflow GitHub Actions `.github/workflows/build-ventoy-bundle.yml`:
+
+1. Télécharge l'ISO cible définie via `TARGET_ISO_URL`.
+2. Génère le bundle Ventoy.
+3. Lance un smoke test headless QEMU qui vérifie un boot initial, des marqueurs NoCloud/cloud-init, et la validité syntaxique des scripts critiques.
+4. Publie les artefacts de diagnostic (`smoke-install.log`, seed ISO).
+
 ## Proxy nomade
 Après install, un timer systemd applique ou retire le proxy automatiquement:
 - /etc/proxy-autoswitch.conf
