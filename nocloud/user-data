@@ -109,11 +109,11 @@ autoinstall:
     - curtin in-target -- bash /root/install-scripts/install-proxy-autoswitch.sh || true
 
     - curtin in-target -- apt-get update 
-    - curtin in-target -- apt-get install -y network-manager network-manager-openconnect iwd curl git wget ansible snapper tpm2-tools unattended-upgrades locales exfatprogs fonts-noto-core fonts-noto-color-emoji fonts-jetbrains-mono fonts-unifont || true
+    - curtin in-target -- apt-get install -y network-manager network-manager-openconnect iwd curl git wget ansible snapper tpm2-tools unattended-upgrades locales exfatprogs || true
 
     - curtin in-target -- bash /root/install-scripts/configure-networkmanager.sh
     - curtin in-target -- bash /root/install-scripts/configure-system-optimizations.sh
-    - curtin in-target -- bash /root/install-scripts/configure-recovery-and-tpm.sh || true
+    # - curtin in-target -- bash /root/install-scripts/configure-recovery-and-tpm.sh || true
 
     # IMPORTANT : celui-ci en dernier, hors chroot
     - bash /target/root/install-scripts/configure-btrfs-root-at.sh
