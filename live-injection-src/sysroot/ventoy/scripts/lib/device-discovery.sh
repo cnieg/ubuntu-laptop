@@ -162,3 +162,22 @@ detect_swap_uuid() {
   log_device_discovery "swap UUID not found; returning explicit none"
   echo "none"
 }
+
+extract_swap_device_from_fstab() {
+  local fstab_path="${1:-/etc/fstab}"
+  local swap_spec=""
+  local swap_dev=""
+
+  [ -f "$fstab_path" ] || return 0
+
+  swap_spec="$(awk '$1 !~ /^#/ && $3 == "swap" { print $1; exit }' "$fstab_path")"
+  if [ -z "$swap_spec" ]; then
+    return 0
+  fi
+
+  swap_dev="$(resolve_device_spec "$swap_spec")"
+  if [ -n "$swap_dev" ]; then
+    log_device_discovery "swap device from ${fstab_path} (${swap_spec}): ${swap_dev}"
+    echo "$swap_dev"
+  fi
+}
