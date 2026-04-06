@@ -37,6 +37,8 @@ Le workflow GitHub Actions `.github/workflows/build-ventoy-bundle.yml`:
 3. Lance un smoke test headless QEMU qui vérifie un boot initial, des marqueurs NoCloud/cloud-init, et la validité syntaxique des scripts critiques.
 4. Publie les artefacts de diagnostic (`smoke-install.log`, seed ISO).
 
+Par défaut, l'absence de marqueurs `cloud-init` sur la sortie série n'est plus bloquante si le menu GRUB/installer est bien observé. Pour réactiver l'échec strict sur ces marqueurs, définir `SMOKE_STRICT_CLOUD_INIT=1`.
+
 ## Proxy nomade
 Après install, un timer systemd applique ou retire le proxy automatiquement:
 - /etc/proxy-autoswitch.conf
