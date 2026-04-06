@@ -8,7 +8,7 @@ on:
 
 env:
   TARGET_ISO_NAME: resolute-live-server-amd64.iso
-  TARGET_ISO_URL: https://releases.ubuntu.com/noble/ubuntu-24.04.2-live-server-amd64.iso
+  TARGET_ISO_URL: https://cdimage.ubuntu.com/ubuntu-server/daily-live/20260403/resolute-live-server-amd64.iso
 
 jobs:
   build:
