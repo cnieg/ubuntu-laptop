@@ -1,0 +1,68 @@
+name: Build Ventoy bundle
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  TARGET_ISO_NAME: resolute-live-server-amd64.iso
+  TARGET_ISO_URL: https://cdimage.ubuntu.com/ubuntu-server/daily-live/20260403/resolute-live-server-amd64.iso
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dos2unix
+
+      - name: Download target ISO
+        run: |
+          curl -fL --retry 3 --retry-all-errors "$TARGET_ISO_URL" -o "$TARGET_ISO_NAME"
+
+      - name: Build Ventoy bundle
+        run: |
+          chmod +x scripts/build-ventoy-bundle.sh
+          TARGET_ISO_NAME="$TARGET_ISO_NAME" TARGET_ISO_PATH="$GITHUB_WORKSPACE/$TARGET_ISO_NAME" ./scripts/build-ventoy-bundle.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ventoy-bundle
+          path: build/ventoy
+
+  smoke-install:
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: ventoy-bundle
+          path: build/ventoy
+
+      - name: Install smoke dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 xorriso
+
+      - name: Run headless smoke install
+        run: |
+          chmod +x scripts/smoke-install.sh
+          TARGET_ISO_NAME="$TARGET_ISO_NAME" TARGET_ISO_PATH="$GITHUB_WORKSPACE/build/ventoy/$TARGET_ISO_NAME" ./scripts/smoke-install.sh
+
+      - name: Upload smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-install-logs
+          path: |
+            build/ventoy/smoke-install.log
+            build/ventoy/nocloud-seed.iso
